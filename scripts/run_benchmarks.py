@@ -8,7 +8,7 @@ from sklearn.preprocessing import StandardScaler
 import typer
 
 from hnne.benchmarking.utils import time_function_call
-from hnne.benchmarking.data_loading import dataset_loaders, DatasetGroup, \
+from hnne.benchmarking.data import dataset_loaders, DatasetGroup, \
     dataset_validation_knn_values, load_extracted_finch_partitions
 from hnne.hierarchical_projection import multi_step_projection
 from hnne.benchmarking.evaluation import format_metric, dim_reduction_benchmark
@@ -34,7 +34,6 @@ def main(
         ann_threshold: int = 20000,
         compute_trustworthiness: bool = False,
         projection_type: str = 'pca',
-        remove_partitions_above_pca_partition: bool = False,
         project_first_partition_pca: bool = False,
         decompress_points: bool = True,
         verbose: bool = False
@@ -79,9 +78,7 @@ def main(
                 [
                     partitions,
                     partition_sizes,
-                    adjacency_matrices,
-                    partition_labels,
-                    first_neighbors_list
+                    partition_labels
                 ] = load_extracted_finch_partitions(in_partitions_path)
 
                 time_elapsed_finch = pd.read_csv(in_partitions_performance_path)['time_finch'].iloc[0]
@@ -91,9 +88,7 @@ def main(
                 [
                     partitions,
                     partition_sizes,
-                    adjacency_matrices,
-                    partition_labels,
-                    first_neighbors_list
+                    partition_labels
                 ], time_elapsed_finch = time_function_call(
                     FINCH,
                     data,
@@ -107,9 +102,7 @@ def main(
             if partition_sizes[-1] < 3:
                 partition_sizes = partition_sizes[:-1]
                 partitions = partitions[:, :-1]
-                adjacency_matrices = adjacency_matrices[:-1]
                 partition_labels = partition_labels[:-1]
-                first_neighbors_list = first_neighbors_list[:-1]
 
             print(f'Projecting {dataset_name} to {dim} dimensions...')
             [projection, projected_centroid_radii, projected_centroids, _, _, _, _,
@@ -117,16 +110,13 @@ def main(
                 multi_step_projection,
                 data,
                 partitions,
-                adjacency_matrices,
                 partition_labels,
-                first_neighbors_list,
                 inflate_pointclouds=inflate_pointclouds,
                 radius_shrinking=radius_shrinking,
                 dim=dim,
                 partition_sizes=partition_sizes,
                 real_nn_threshold=ann_threshold,
                 projection_type=projection_type,
-                remove_partitions_above_pca_partition=remove_partitions_above_pca_partition,
                 project_first_partition_pca=project_first_partition_pca,
                 decompress_points=decompress_points
             )

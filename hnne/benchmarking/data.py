@@ -111,8 +111,8 @@ def load_higgs(data_path):
     return mat[:, 1:], mat[:, 0]
 
 
-def load_mnist_8m():
-    mnist = np.load(MNIST8M_PATH)
+def load_mnist_8m(data_path):
+    mnist = np.load(data_path / 'mnist8M/data.npy')
     return mnist[:, :-1], mnist[:, -1]
 
 
@@ -186,9 +186,5 @@ def load_extracted_finch_partitions(path):
     return (
         finch_info['partitions'],
         finch_info['partition_sizes'],
-        finch_info['req_c'],
-        finch_info['adjacency_matrices'],
-        finch_info['partition_clustering'],
-        finch_info['cluster_dists'],
-        finch_info['first_neighbors_list']
+        finch_info['partition_clustering']
     )

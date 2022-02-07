@@ -117,9 +117,7 @@ def FINCH(
     Returns:
         c: NxP matrix where P is the partition. Cluster label for every partition.
         num_clust: Number of clusters.
-        adjacency_matrices: The adjacency matrices of the 1-NN graphs build during the clustering
         partition_clustering:
-        first_neighbors_list:
 
     The code implements the FINCH algorithm described in our CVPR 2019 paper
         Sarfraz et al. "Efficient Parameter-free Clustering Using First Neighbor Relations", CVPR2019
@@ -194,4 +192,4 @@ def FINCH(
             print('Partition {}: {} clusters'.format(k, num_clust[k]))
         k += 1
 
-    return c, num_clust, adjacency_matrices, partition_clustering, first_neighbors_list
+    return c, num_clust, partition_clustering

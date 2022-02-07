@@ -32,16 +32,16 @@ def project_with_pca(data, partitions, partition_sizes, dim=2, min_number_of_anc
 def project_points(
         data, 
         dim=2, 
-        projection_type='pca', 
-        adjacency_matrices=None, 
+        projection_type='pca',
         partition_sizes=None, 
         partitions=None):
     scaler = StandardScaler()
     data = scaler.fit_transform(data)
+    pca = None
+    partition_idx = None
+
     if len(data) < dim or projection_type == 'pca':
         projected_points, pca, partition_idx = project_with_pca(data, partitions, partition_sizes, dim=dim)
-    elif projection_type == 'adjacency':
-        projected_points = project_with_adjacency_matrix(data, adjacency_matrices[0], dim=dim)
     elif projection_type == 'random_projection':
         random_components = np.random.random((data.shape[1], dim))
         projected_points = np.dot(data, random_components) 
@@ -51,7 +51,7 @@ def project_points(
         raise ValueError(f'Invalid projection type: {projection_type}')
         
     # TODO: Return an appropriate model/function for each projection
-    return projected_points, pca if projection_type == 'pca' else None, partition_idx, scaler
+    return projected_points, pca, partition_idx, scaler
 
 
 def get_finch_anchors(projected_points, partitions=None):   
@@ -75,7 +75,6 @@ def cool_max(M, u):
 
 
 def cool_max_radius(data, partition):
-    data_lth = data.shape[0]
     norms = np.linalg.norm(data, axis=1)
     norm_maxes = cool_max(norms, partition)
     return norm_maxes[partition]
@@ -148,11 +147,10 @@ def norm_angles_3d(data, alphas, betas, gammas, partition_mapping):
 def move_projected_points_to_anchors(
         points, 
         anchors, 
-        partition,  
-        first_neighbors_list,
+        partition,
         radius_shrinking=.66,
         real_nn_threshold=30000
-    ):
+):
     if anchors.shape[0] <= real_nn_threshold:
         distance_matrix = pairwise.pairwise_distances(anchors, anchors, metric='euclidean')
         np.fill_diagonal(distance_matrix, 1e12)
@@ -207,17 +205,14 @@ def project_with_pca_based_on_first_partition(data, partitions, partition_sizes,
 
 def multi_step_projection(
     data, 
-    partitions, 
-    adjacency_matrices, 
-    partition_labels, 
-    first_neighbors_list,
+    partitions,
+    partition_labels,
     inflate_pointclouds=True,
     radius_shrinking=0.66,
     dim=2,
     real_nn_threshold=40000,
     partition_sizes=None,
     projection_type='pca',
-    remove_partitions_above_pca_partition=False,
     project_first_partition_pca=False,
     decompress_points=False
 ):
@@ -225,20 +220,9 @@ def multi_step_projection(
         data, 
         dim=dim, 
         projection_type=projection_type,
-        adjacency_matrices=adjacency_matrices,
         partition_sizes=partition_sizes, 
         partitions=partitions)
-    
-#     if remove_partitions_above_pca_partition:
-#         if pca_partition_idx == 0:
-#             pca_partition_idx += 1
-#         pca_partition_idx += 1
-#         partition_sizes = partition_sizes[:pca_partition_idx]
-#         partitions = partitions[:, :pca_partition_idx]
-#         adjacency_matrices = adjacency_matrices[:pca_partition_idx]
-#         partition_labels = partition_labels[:pca_partition_idx]
-#         first_neighbors_list = first_neighbors_list[:pca_partition_idx]
-        
+
     print(partition_sizes)
     reversed_partition_range = list(reversed(range(partitions.shape[1])))
     projected_anchors = get_finch_anchors(projected_points, partitions=partitions)    
@@ -258,8 +242,6 @@ def multi_step_projection(
 #         curr_anchors = force_directed_graph_decompression(curr_anchors, weights=weights)
     
     anchor_radii = []
-    shrinking_radii = []#[.9, .9, .9]
-    cnt = 0
     moved_anchors = [curr_anchors]
     points_means = []
     points_max_radii = []
@@ -285,19 +267,12 @@ def multi_step_projection(
                     beta, 
                     gammas,
                     partition_mapping)
-        
-        if cnt < len(shrinking_radii):
-            curr_radius_shrinking = shrinking_radii[cnt]
-        else:
-            curr_radius_shrinking = radius_shrinking
-        cnt+=1
-        print(f'Shrinking with rate: {curr_radius_shrinking}')
+
         curr_anchors, radii, points_mean, points_max_radius = move_projected_points_to_anchors(
             current_points,
             curr_anchors, 
-            partition_mapping, 
-            first_neighbors_list[i],
-            radius_shrinking=curr_radius_shrinking,
+            partition_mapping,
+            radius_shrinking=radius_shrinking,
             real_nn_threshold=real_nn_threshold,
         )
         anchor_radii.append(radii)
@@ -312,13 +287,12 @@ def full_projection(
         data, 
         distance='cosine',
         large_datasets=False,
-        ann_threshold=100000,
+        ann_threshold=30000,
         project_first_partition_pca=False,
         radius_shrinking=0.66,
         inflate_pointclouds=True,
         projection_type='pca',
         dim=2,
-        remove_partitions_above_pca_partition=False,
         stop_at_partition=None,
         decompress_points=False
 ):
@@ -326,9 +300,7 @@ def full_projection(
     [
         partitions, 
         partition_sizes,
-        adjacency_matrices, 
-        partition_labels,
-        first_neighbors_list
+        partition_labels
     ] = FINCH( 
         data, 
         ensure_early_exit=True, 
@@ -340,32 +312,25 @@ def full_projection(
             
     if partition_sizes[-1] < 3:
         partition_sizes = partition_sizes[:-1]
-        partitions = partitions[:, :-1] 
-        adjacency_matrices = adjacency_matrices[:-1]
+        partitions = partitions[:, :-1]
         partition_labels = partition_labels[:-1]
-        first_neighbors_list = first_neighbors_list[:-1]
         
     if stop_at_partition is not None:
         partition_sizes = partition_sizes[:stop_at_partition]
-        partitions = partitions[:, :stop_at_partition] 
-        adjacency_matrices = adjacency_matrices[:stop_at_partition]
+        partitions = partitions[:, :stop_at_partition]
         partition_labels = partition_labels[:stop_at_partition]
-        first_neighbors_list = first_neighbors_list[:stop_at_partition]
 
     print(f'Projecting to {dim} dimensions...')
     projection, projected_centroid_radii, projected_centroids, _, _, _, _, _ = multi_step_projection(
         data, 
-        partitions, 
-        adjacency_matrices,
+        partitions,
         partition_labels,
-        first_neighbors_list,
         inflate_pointclouds=inflate_pointclouds,
         radius_shrinking=radius_shrinking,
         dim=dim,
         partition_sizes=partition_sizes,
         real_nn_threshold=ann_threshold,
         projection_type=projection_type,
-        remove_partitions_above_pca_partition=remove_partitions_above_pca_partition,
         project_first_partition_pca=project_first_partition_pca,
         decompress_points=decompress_points
     )

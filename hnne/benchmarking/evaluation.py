@@ -1,13 +1,9 @@
 import numpy as np
-import pandas as pd
-from IPython.core.display import display
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.model_selection import StratifiedKFold
 from sklearn.metrics import accuracy_score
 from sklearn.manifold import trustworthiness
 from tqdm import tqdm
-import matplotlib.pyplot as plt
-from scipy.spatial import Voronoi, voronoi_plot_2d
 from pynndescent import NNDescent
 from scipy.stats import mode
 
@@ -103,56 +99,3 @@ def format_metric(metric_values, digit_precision=3):
     return {
         k: f'{value.mean():.{digit_precision}f} (\u00B1{value.std():.{digit_precision}f})' 
         for k, value in metric_values.items()}
-
-
-def validate_finch_projection(
-        data,
-        targets,
-        projection,
-        projected_centroid_radii,
-        projected_centroids,
-        figsize=(15, 15),
-        compute_trustworthiness=False,
-        plot_projection=True,
-        k_values=None,
-        plot_without_cells=True,
-        xlim=None,
-        ylim=None
-):
-    if k_values is None:
-        k_values = [10, 20]
-
-    proj_knn_acc, tw = dim_reduction_benchmark(k_values, data, projection, targets, compute_trustworthiness=compute_trustworthiness)
-        
-    display(pd.DataFrame({
-        'proj_KNN_ACC': format_metric(proj_knn_acc),
-        'trustworthiness': {v: tw for v in k_values}
-    }))
-
-    if plot_projection:
-        _, ax = plt.subplots(figsize=figsize)
-
-        voronoi_cells = Voronoi(projected_centroids)
-        voronoi_plot_2d(voronoi_cells, show_vertices=False, show_points=False, ax=ax, line_alpha=0.3, line_width=.5)
-
-        for point, radius in zip(projected_centroids, projected_centroid_radii):
-            ax.add_patch(plt.Circle(point, radius, color='orange', alpha=.1, zorder=1))
-
-        ax.scatter(*projection.T, s=1, c=targets, zorder=2, cmap='Spectral')
-        if xlim:
-            ax.set_xlim(xlim)
-        if ylim:
-            ax.set_ylim(ylim)
-
-        plt.gca().set_aspect('equal', adjustable='box')
-        plt.show()
-
-    if plot_without_cells:
-        plt.figure(figsize=(10, 10))
-        if xlim:
-            plt.xlim(xlim)
-        if ylim:
-            plt.ylim(ylim)
-        plt.scatter(*projection.T, s=1, c=targets, cmap='Spectral')
-        plt.gca().set_aspect('equal', adjustable='box')
-        plt.show()
