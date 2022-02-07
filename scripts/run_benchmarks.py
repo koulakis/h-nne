@@ -35,7 +35,7 @@ def main(
         compute_trustworthiness: bool = False,
         projection_type: str = 'pca',
         project_first_partition_pca: bool = False,
-        decompress_points: bool = True,
+        decompress_points: bool = False,
         verbose: bool = False
 ):
     if dataset_group == DatasetGroup.large:

@@ -24,7 +24,9 @@ setuptools.setup(
         "pynndescent",
         "numba",
         "typer",
-        "pandas"
+        "pandas",
+        "fa2",
+        "networkx"
     ],
     extras_require={
         "benchmarking": [

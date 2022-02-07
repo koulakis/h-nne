@@ -4,6 +4,9 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import pairwise
 from pynndescent import NNDescent
 from numba import jit
+import networkx as nx
+from scipy.spatial import Voronoi
+from fa2 import ForceAtlas2
 
 from hnne.finch_clustering import cool_mean, FINCH
 
@@ -203,6 +206,26 @@ def project_with_pca_based_on_first_partition(data, partitions, partition_sizes,
     return results
 
 
+def force_directed_graph_decompression(points, weights, verbose=False, iterations=50):
+    voronoi = Voronoi(points)
+
+    graph = nx.Graph()
+    for i, point in enumerate(points):
+        graph.add_node(i, pos=point)
+    for i, j in voronoi.ridge_points:
+        graph.add_edge(i, j, weight=1 / (weights[i] * weights[j]))
+
+    initial_positions = nx.get_node_attributes(graph, 'pos')
+    forceatlas2 = ForceAtlas2(outboundAttractionDistribution=True, verbose=verbose)
+    positions = forceatlas2.forceatlas2_networkx_layout(graph, pos=initial_positions, iterations=iterations)
+
+    max_radius = np.linalg.norm(np.array(list(positions.values())), axis=1).max()
+    normalized_points = [(i, tuple(np.array(point) / max_radius)) for i, point in positions.items()]
+    moved_points = np.array(list(map(lambda x: x[1], sorted(normalized_points, key=lambda x: x[0]))))
+
+    return moved_points
+
+
 def multi_step_projection(
     data, 
     partitions,
@@ -234,12 +257,12 @@ def multi_step_projection(
     projected_anchors = [projected_points] + projected_anchors
     curr_anchors = projected_anchors[-1]
     
-#     if decompress_points:
-# #         weights = pd.DataFrame(partitions[:, -1]).groupby(0).size().sort_index()
-# #         weights = len(weights) * weights / weights.sum()
-# #         weights = 1 / weights
-#         weights = np.ones(len(curr_anchors))
-#         curr_anchors = force_directed_graph_decompression(curr_anchors, weights=weights)
+    if decompress_points:
+#         weights = pd.DataFrame(partitions[:, -1]).groupby(0).size().sort_index()
+#         weights = len(weights) * weights / weights.sum()
+#         weights = 1 / weights
+        weights = np.ones(len(curr_anchors))
+        curr_anchors = force_directed_graph_decompression(curr_anchors, weights=weights)
     
     anchor_radii = []
     moved_anchors = [curr_anchors]
