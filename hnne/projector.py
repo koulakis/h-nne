@@ -9,7 +9,7 @@ from hnne.hierarchical_projection import multi_step_projection
 
 class HNNEProjector:
     def __init__(
-            self ,
+            self,
             inflate_pointclouds=False,
             radius_shrinking=0.66,
             dim=2,

@@ -35,11 +35,6 @@ def clust_rank(
         print('Step PyNNDescent done ...')
 
     A = sp.csr_matrix((np.ones_like(initial_rank, dtype=np.float32), (np.arange(0, s), initial_rank)), shape=(s, s))
-    A = A + sp.eye(s, dtype=np.float32, format='csr')
-    A = A @ A.T
-
-    A = A.tolil()
-    A.setdiag(0)
     
     return A, orig_dist, initial_rank
 
