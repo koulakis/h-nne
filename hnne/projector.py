@@ -3,8 +3,8 @@ import numpy as np
 import pickle
 from pynndescent import NNDescent
 
-from h_nne.finch_clustering import cool_mean, FINCH
-from h_nne.hierarchical_projection import multi_step_projection
+from hnne.finch_clustering import cool_mean, FINCH
+from hnne.hierarchical_projection import multi_step_projection
 
 
 class HNNEProjector:

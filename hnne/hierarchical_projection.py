@@ -5,7 +5,7 @@ from sklearn.metrics import pairwise
 from pynndescent import NNDescent
 from numba import jit
 
-from h_nne.finch_clustering import cool_mean, FINCH
+from hnne.finch_clustering import cool_mean, FINCH
 
 
 def project_with_adjacency_matrix(data, adjacency_matrix, dim=2):
