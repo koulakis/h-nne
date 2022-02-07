@@ -1,11 +1,9 @@
 from pathlib import Path
-import sys
 from typing import Optional, Tuple
 
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from scipy.spatial import Voronoi, voronoi_plot_2d
 from sklearn.preprocessing import StandardScaler
 import typer
 
@@ -19,13 +17,11 @@ from hnne.finch_clustering import FINCH
 
 def main(
         experiment_name: str,
-        output_path: Path,
+        output_directory: Path,
         data_path: Path,
         dataset_group: DatasetGroup = DatasetGroup.small,
-        output_partitions_path: Optional[Path] = None,
         points_plot_limit: int = 50000,
         figsize: Tuple[int, int] = (20, 20),
-        large_datasets: bool = False,
         skip_done: bool = True,
         scale_data: bool = False,
         dim: int = 2,
@@ -40,30 +36,33 @@ def main(
         projection_type: str = 'pca',
         remove_partitions_above_pca_partition: bool = False,
         project_first_partition_pca: bool = False,
-        decompress_points: bool = True
+        decompress_points: bool = True,
+        verbose: bool = False
 ):
-    if large_datasets:
+    if dataset_group == DatasetGroup.large:
         print('Hold tight, processing large datasets...')
 
-    loaders = dataset_loaders(dataset_group=dataset_group)
+    experiment_directory = output_directory / experiment_name
+    partitions_directory = experiment_directory / 'partitions'
+    projections_directory = experiment_directory / 'projections'
+    scores_directory = experiment_directory / 'scores'
+    plots_directory = experiment_directory / 'plots'
+    for directory in [
+        experiment_directory, partitions_directory, projections_directory, scores_directory, plots_directory
+    ]:
+        directory.mkdir(exist_ok=True)
 
+    loaders = dataset_loaders(dataset_group=dataset_group)
     for dataset_name, loader in loaders.items():
         try:
             knn_values = [1] if validate_only_1nn else dataset_validation_knn_values[dataset_name]
 
-            filename = f'{dataset_name}_{experiment_name}_dim_{dim}'
-            if output_partitions_path is None:
-                output_partitions_path = output_path / 'partitions'
-            in_partitions_path = output_partitions_path / f'{dataset_name}_finch.pkl'
-            in_partitions_performance_path = output_partitions_path / f'{dataset_name}_performance.csv'
-            out_projection_path = output_path / 'projections' / f'{filename}.npz'
-            out_score_path = output_path / 'scores' / f'{filename}.csv'
-            out_plot_path = output_path / 'plots' / f'{filename}.png'
-
-            output_path.mkdir(exist_ok=True)
-            out_projection_path.parent.mkdir(exist_ok=True)
-            out_score_path.parent.mkdir(exist_ok=True)
-            out_plot_path.parent.mkdir(exist_ok=True)
+            filename = f'{dataset_name}'
+            in_partitions_path = partitions_directory / f'{dataset_name}_finch.pkl'
+            in_partitions_performance_path = partitions_directory / f'{dataset_name}_performance.csv'
+            out_projection_path = projections_directory / f'{filename}.npz'
+            out_score_path = scores_directory / f'{filename}.csv'
+            out_plot_path = plots_directory / f'{filename}.png'
 
             if skip_done and out_score_path.exists() and out_projection_path.exists():
                 print(f'Skipping extraction of existing partitions for {dataset_name}.')
@@ -80,10 +79,8 @@ def main(
                 [
                     partitions,
                     partition_sizes,
-                    _,
                     adjacency_matrices,
                     partition_labels,
-                    cluster_dists,
                     first_neighbors_list
                 ] = load_extracted_finch_partitions(in_partitions_path)
 
@@ -94,17 +91,15 @@ def main(
                 [
                     partitions,
                     partition_sizes,
-                    req_c,
                     adjacency_matrices,
                     partition_labels,
-                    cluster_dists,
                     first_neighbors_list
                 ], time_elapsed_finch = time_function_call(
                     FINCH,
                     data,
                     ensure_early_exit=True,
-                    verbose=large_datasets,
-                    low_memory_nndescent=large_datasets,
+                    verbose=verbose,
+                    low_memory_nndescent=dataset_group == dataset_group.large,
                     distance=distance,
                     ann_threshold=ann_threshold
                 )

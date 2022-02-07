@@ -325,11 +325,9 @@ def full_projection(
     print(f'Extracting FINCH partitions with {distance} distance...')
     [
         partitions, 
-        partition_sizes, 
-        req_c, 
+        partition_sizes,
         adjacency_matrices, 
-        partition_labels, 
-        cluster_dists,
+        partition_labels,
         first_neighbors_list
     ] = FINCH( 
         data, 

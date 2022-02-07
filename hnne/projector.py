@@ -39,11 +39,9 @@ class HNNEProjector:
             print('Generating h-NNE hierarchy...')
         [
             partitions, 
-            partition_sizes, 
-            req_c, 
+            partition_sizes,
             adjacency_matrices, 
-            partition_labels, 
-            cluster_dists,
+            partition_labels,
             first_neighbors_list
         ] = FINCH( 
             data, 

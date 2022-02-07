@@ -9,10 +9,6 @@ from PIL import Image
 from torchvision.datasets import MNIST, FashionMNIST, CIFAR10
 import pickle
 
-MNIST8M_PATH = '/cvhci/data/dimensionality_reduction/mnist8M/data.npy'
-MNIST2M_PATH = '/cvhci/data/dimensionality_reduction/mnist2M/data.npy'
-MNIST4M_PATH = '/cvhci/data/dimensionality_reduction/mnist4M/data.npy'
-
 
 def load_coil20(data_path):
     coil_data_path = data_path / 'coil-20-proc'
@@ -167,7 +163,7 @@ def dataset_loaders(dataset_group):
 
 validation_1nn = [1]
 validation_ranges_small = [1, 10, 20, 40]
-validation_ranges_large = [100, 200]  # , 400, 800, 1600, 3200]
+validation_ranges_large = [100, 200]
 
 dataset_validation_knn_values = {
     'coil_20': validation_ranges_small,
