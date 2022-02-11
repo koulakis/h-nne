@@ -6,7 +6,9 @@ from pynndescent import NNDescent
 from numba import jit
 import networkx as nx
 from scipy.spatial import Voronoi
+import scipy.sparse as sp
 from fa2 import ForceAtlas2
+
 
 from hnne.finch_clustering import cool_mean, FINCH
 
@@ -66,7 +68,7 @@ def get_finch_anchors(projected_points, partitions=None):
 
 
 @jit
-def cool_max(M, u):
+def cool_max_old(M, u):
     lth = len(M)
     c = len(np.unique(u))
     result = np.zeros(c)
@@ -75,6 +77,15 @@ def cool_max(M, u):
         if result[idx] < M[i]:
             result[idx] = M[i]
     return result
+
+
+def cool_max(M, u):
+    s = M.size
+    Ms = sp.spdiags(M, 0, M.size, M.size)
+    un, nf = np.unique(u, return_counts=True)
+    umat = sp.csr_matrix((np.ones(s, dtype='float32'), (np.arange(0, s), u)), shape=(s, len(un)))
+    result = np.max(umat.T * Ms, axis=-1).toarray()
+    return np.squeeze(result)
 
 
 def cool_max_radius(data, partition):
