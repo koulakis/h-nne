@@ -36,5 +36,7 @@ setuptools.setup(
             "mat73",
             "matplotlib"
         ]
-    }
+    },
+    test_suite="pytest",
+    tests_require=["pytest"],
 )

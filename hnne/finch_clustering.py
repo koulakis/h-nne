@@ -3,6 +3,8 @@ from sklearn import metrics
 import scipy.sparse as sp
 from pynndescent import NNDescent
 
+from hnne.cool_functions import cool_mean
+
 
 def clust_rank(
         mat,
@@ -45,13 +47,6 @@ def get_clust(a, orig_dist, min_sim=None):
 
     num_clust, u = sp.csgraph.connected_components(csgraph=a, directed=True, connection='weak', return_labels=True)
     return u, num_clust
-
-
-def cool_mean(M, u):    
-    s = M.shape[0]    
-    un, nf = np.unique(u, return_counts=True)    
-    umat = sp.csr_matrix((np.ones(s, dtype='float32'), (np.arange(0, s), u)), shape=(s, len(un))) 
-    return (umat.T @ M) / nf[..., np.newaxis] 
 
 
 def get_merge(c, u, data):

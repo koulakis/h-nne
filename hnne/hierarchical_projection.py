@@ -3,14 +3,13 @@ from sklearn.decomposition import TruncatedSVD, PCA
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import pairwise
 from pynndescent import NNDescent
-from numba import jit
 import networkx as nx
 from scipy.spatial import Voronoi
-import scipy.sparse as sp
 from fa2 import ForceAtlas2
 
 
-from hnne.finch_clustering import cool_mean, FINCH
+from hnne.finch_clustering import FINCH
+from hnne.cool_functions import cool_mean, cool_normalize, cool_max_radius
 
 
 def project_with_adjacency_matrix(data, adjacency_matrix, dim=2):
@@ -65,44 +64,6 @@ def get_finch_anchors(projected_points, partitions=None):
         projected_anchors = cool_mean(projected_points, partitions[:, i])
         all_projected_anchors.append(projected_anchors)
     return all_projected_anchors
-
-
-@jit
-def cool_max_old(M, u):
-    lth = len(M)
-    c = len(np.unique(u))
-    result = np.zeros(c)
-    for i in range(lth):
-        idx = u[i]
-        if result[idx] < M[i]:
-            result[idx] = M[i]
-    return result
-
-
-def cool_max(M, u):
-    s = M.size
-    Ms = sp.spdiags(M, 0, M.size, M.size)
-    un, nf = np.unique(u, return_counts=True)
-    umat = sp.csr_matrix((np.ones(s, dtype='float32'), (np.arange(0, s), u)), shape=(s, len(un)))
-    result = np.max(umat.T * Ms, axis=-1).toarray()
-    return np.squeeze(result)
-
-
-def cool_max_radius(data, partition):
-    norms = np.linalg.norm(data, axis=1)
-    norm_maxes = cool_max(norms, partition)
-    return norm_maxes[partition]
-
-
-def cool_std(data, means, partition, epsilon=1e-12):
-    return np.sqrt(cool_mean((data - means)**2, partition)) + epsilon
-
-
-def cool_normalize(data, partition):
-    means = cool_mean(data, partition)[partition]
-    stds = cool_std(data, means, partition)[partition]
-    
-    return (data - means) / stds
 
 
 def norm_angle(data, theta, partition):
