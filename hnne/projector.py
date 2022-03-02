@@ -16,10 +16,9 @@ class HNNEProjector:
             real_nn_threshold=40000,
             projection_type='pca',
             distance='cosine',
-            low_memory_nndescent=False
+            low_memory_nndescent=False,
+            decompress_points=False # TODO: Change to true after tests
     ):
-        if inflate_pointclouds:
-            raise NotImplementedError('Point inflation not supported yet.')
         self.inflate_pointclouds = inflate_pointclouds
         self.radius_shrinking = radius_shrinking
         self.dim = dim
@@ -27,6 +26,7 @@ class HNNEProjector:
         self.projection_type = projection_type
         self.distance = distance
         self.low_memory_nndescent = low_memory_nndescent
+        self.decompress_points = decompress_points
         
     def fit(
             self,
@@ -40,9 +40,7 @@ class HNNEProjector:
         [
             partitions, 
             partition_sizes,
-            adjacency_matrices, 
-            partition_labels,
-            first_neighbors_list
+            partition_labels
         ] = FINCH( 
             data, 
             ensure_early_exit=False,
@@ -54,31 +52,27 @@ class HNNEProjector:
         
         if stop_at_partition is not None or partition_sizes[-1] < 3:
             if verbose:
-                print('Fitlering last partitions')
+                print('Filtering last partitions')
             stop_at_partition = -1 if stop_at_partition is None else stop_at_partition
             
             partition_sizes = partition_sizes[:stop_at_partition]
-            partitions = partitions[:, :stop_at_partition] 
-            adjacency_matrices = adjacency_matrices[:stop_at_partition]
+            partitions = partitions[:, :stop_at_partition]
             partition_labels = partition_labels[:stop_at_partition]
-            first_neighbors_list = first_neighbors_list[:stop_at_partition]
 
         if verbose:
             print(f'Projecting to {self.dim} dimensions...')
+
         projection, projected_centroid_radii, projected_centroids, pca, scaler, points_means, points_max_radii, projected_anchors = multi_step_projection(
             data, 
-            partitions, 
-            adjacency_matrices,
+            partitions,
             partition_labels,
-            first_neighbors_list,
             inflate_pointclouds=self.inflate_pointclouds,
             radius_shrinking=self.radius_shrinking,
             dim=self.dim,
-            partition_sizes=partition_sizes,
             real_nn_threshold=self.real_nn_threshold,
+            partition_sizes=partition_sizes,
             projection_type=self.projection_type,
-            remove_partitions_above_pca_partition=False,
-            project_first_partition_pca=False
+            decompress_points=self.decompress_points
         ) 
         
         self.pca = pca
