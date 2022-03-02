@@ -3,13 +3,10 @@ from sklearn.decomposition import TruncatedSVD, PCA
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import pairwise
 from pynndescent import NNDescent
-import networkx as nx
-from scipy.spatial import Voronoi
-from fa2 import ForceAtlas2
-
 
 from hnne.finch_clustering import FINCH
-from hnne.cool_functions import cool_mean, cool_normalize, cool_max_radius
+from hnne.cool_functions import cool_mean, cool_max_radius
+from hnne.point_spreading import atlas_decompression, norm_angles, norm_angles_3d
 
 
 def project_with_adjacency_matrix(data, adjacency_matrix, dim=2):
@@ -64,59 +61,6 @@ def get_finch_anchors(projected_points, partitions=None):
         projected_anchors = cool_mean(projected_points, partitions[:, i])
         all_projected_anchors.append(projected_anchors)
     return all_projected_anchors
-
-
-def norm_angle(data, theta, partition):
-    rot = np.array([
-        [np.cos(theta), np.sin(theta)],
-        [-np.sin(theta), np.cos(theta)]
-    ])
-    
-    data = cool_normalize(data, partition)
-    
-    rotated_data = np.dot(data, rot)
-    rotated_data = cool_normalize(rotated_data, partition)
-
-    return np.dot(rotated_data, np.linalg.inv(rot))
-
-
-def norm_angles(data, angles, partition_mapping):
-    for angle in angles:
-        data = norm_angle(data, angle, partition_mapping)
-    return data
-
-
-def norm_angle_3d(data, alpha, beta, gamma, partition):
-    r_x = np.array([
-        [np.cos(alpha), -np.sin(alpha), 0],
-        [np.sin(alpha), np.cos(alpha), 0],
-        [0, 0, 1]
-    ])
-    r_y = np.array([
-        [np.cos(beta), 0, np.sin(beta)],
-        [0, 1, 0],
-        [-np.sin(beta), 0, np.cos(beta)]
-    ])
-    r_z = np.array([
-        [1, 0, 0],
-        [0, np.cos(gamma), -np.sin(gamma)],
-        [0, np.sin(gamma), np.cos(gamma)]
-    ])
-    
-    rot = np.dot(r_x, np.dot(r_y, r_z))
-    
-    data = cool_normalize(data, partition)
-    
-    rotated_data = np.dot(data, rot)
-    rotated_data = cool_normalize(rotated_data, partition)
-
-    return np.dot(rotated_data, np.linalg.inv(rot))
-
-
-def norm_angles_3d(data, alphas, betas, gammas, partition_mapping):
-    for alpha, beta, gamma in zip(alphas, betas, gammas):
-        data = norm_angle_3d(data, alpha, beta, gamma, partition_mapping)
-    return data
 
 
 def move_projected_points_to_anchors(
@@ -178,26 +122,6 @@ def project_with_pca_based_on_first_partition(data, partitions, partition_sizes,
     return results
 
 
-def force_directed_graph_decompression(points, weights, verbose=False, iterations=50):
-    voronoi = Voronoi(points)
-
-    graph = nx.Graph()
-    for i, point in enumerate(points):
-        graph.add_node(i, pos=point)
-    for i, j in voronoi.ridge_points:
-        graph.add_edge(i, j, weight=1 / (weights[i] * weights[j]))
-
-    initial_positions = nx.get_node_attributes(graph, 'pos')
-    forceatlas2 = ForceAtlas2(outboundAttractionDistribution=True, verbose=verbose)
-    positions = forceatlas2.forceatlas2_networkx_layout(graph, pos=initial_positions, iterations=iterations)
-
-    max_radius = np.linalg.norm(np.array(list(positions.values())), axis=1).max()
-    normalized_points = [(i, tuple(np.array(point) / max_radius)) for i, point in positions.items()]
-    moved_points = np.array(list(map(lambda x: x[1], sorted(normalized_points, key=lambda x: x[0]))))
-
-    return moved_points
-
-
 def multi_step_projection(
     data, 
     partitions,
@@ -209,7 +133,7 @@ def multi_step_projection(
     partition_sizes=None,
     projection_type='pca',
     project_first_partition_pca=False,
-    decompress_points=False
+    decompression_level=2
 ):
     projected_points, pca, pca_partition_idx, scaler = project_points(
         data, 
@@ -229,18 +153,14 @@ def multi_step_projection(
     projected_anchors = [projected_points] + projected_anchors
     curr_anchors = projected_anchors[-1]
     
-    if decompress_points:
-#         weights = pd.DataFrame(partitions[:, -1]).groupby(0).size().sort_index()
-#         weights = len(weights) * weights / weights.sum()
-#         weights = 1 / weights
-        weights = np.ones(len(curr_anchors))
-        curr_anchors = force_directed_graph_decompression(curr_anchors, weights=weights)
+    if decompression_level > 0:
+        curr_anchors = atlas_decompression(curr_anchors)
     
     anchor_radii = []
     moved_anchors = [curr_anchors]
     points_means = []
     points_max_radii = []
-    for i in reversed_partition_range:
+    for cnt, i in enumerate(reversed_partition_range):
         if i == 0:
             partition_mapping = partitions[:, 0]
         else:
@@ -270,6 +190,8 @@ def multi_step_projection(
             radius_shrinking=radius_shrinking,
             real_nn_threshold=real_nn_threshold,
         )
+        if cnt <= decompression_level - 2:
+            curr_anchors = atlas_decompression(curr_anchors)
         anchor_radii.append(radii)
         moved_anchors.append(curr_anchors)
         points_means.append(points_mean)
@@ -289,7 +211,7 @@ def full_projection(
         projection_type='pca',
         dim=2,
         stop_at_partition=None,
-        decompress_points=False
+        decompression_level=2
 ):
     print(f'Extracting FINCH partitions with {distance} distance...')
     [
@@ -327,7 +249,7 @@ def full_projection(
         real_nn_threshold=ann_threshold,
         projection_type=projection_type,
         project_first_partition_pca=project_first_partition_pca,
-        decompress_points=decompress_points
+        decompression_level=decompression_level
     )
     
-    return projection, projected_centroid_radii, projected_centroids
+    return projection, projected_centroid_radii, projected_centroids, partitions

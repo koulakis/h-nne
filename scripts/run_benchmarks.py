@@ -35,7 +35,7 @@ def main(
         compute_trustworthiness: bool = False,
         projection_type: str = 'pca',
         project_first_partition_pca: bool = False,
-        decompress_points: bool = False,
+        decompression_level: int = 2,
         verbose: bool = False
 ):
     if dataset_group == DatasetGroup.large:
@@ -118,7 +118,7 @@ def main(
                 real_nn_threshold=ann_threshold,
                 projection_type=projection_type,
                 project_first_partition_pca=project_first_partition_pca,
-                decompress_points=decompress_points
+                decompression_level=decompression_level
             )
 
             np.savez(
