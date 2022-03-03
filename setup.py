@@ -20,11 +20,10 @@ setuptools.setup(
         "numpy==1.20",
         "sklearn",
         "tqdm",
-        "sklearn",
         "pynndescent",
-        "numba",
         "typer",
         "pandas",
+        "cython",
         "fa2",
         "networkx"
     ],

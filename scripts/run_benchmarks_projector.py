@@ -72,14 +72,14 @@ def main(
                 dim=dim,
                 real_nn_threshold=ann_threshold,
                 projection_type=projection_type,
-                distance=finch_distance,
+                nn_distance=finch_distance,
                 low_memory_nndescent=False,
                 decompression_level=decompression_level
             )
 
             _, time_elapsed_finch = time_function_call(hnne.fit_only_clustering, data, verbose=verbose)
 
-            [projection, _], time_elapsed_projection = time_function_call(
+            projection, time_elapsed_projection = time_function_call(
                 hnne.fit_transform,
                 data,
                 verbose=verbose

@@ -61,7 +61,7 @@ def load_fmnist(data_path):
 
 def load_imagenet_test(data_path):
     imagenet_x = mat73.loadmat(data_path / 'imagenet_ILSVRC_2012/val/data.mat')['data']
-    imagenet_y = mat73.loadmat('/cvhci/data/dimensionality_reduction/imagenet_ILSVRC_2012/val/labels.mat')['labels']
+    imagenet_y = mat73.loadmat(data_path / 'imagenet_ILSVRC_2012/val/labels.mat')['labels']
 
     return imagenet_x, imagenet_y
 
