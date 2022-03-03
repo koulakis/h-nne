@@ -7,17 +7,17 @@ from hnne.finch_clustering import cool_mean, FINCH
 from hnne.hierarchical_projection import multi_step_projection
 
 
-class HNNEProjector:
+class HNNE:
     def __init__(
             self,
             inflate_pointclouds=False,
             radius_shrinking=0.66,
             dim=2,
-            real_nn_threshold=40000,
+            real_nn_threshold=20000,
             projection_type='pca',
             distance='cosine',
             low_memory_nndescent=False,
-            decompress_points=False # TODO: Change to true after tests
+            decompression_level=0
     ):
         self.inflate_pointclouds = inflate_pointclouds
         self.radius_shrinking = radius_shrinking
@@ -26,43 +26,57 @@ class HNNEProjector:
         self.projection_type = projection_type
         self.distance = distance
         self.low_memory_nndescent = low_memory_nndescent
-        self.decompress_points = decompress_points
-        
-    def fit(
-            self,
-            data,
-            y=None,
-            verbose=True,
-            stop_at_partition=None
-    ):        
+        self.decompression_level = decompression_level
+        self.clustering_output = None
+
+    def fit_only_clustering(self, data, verbose=True):
         if verbose:
-            print('Generating h-NNE hierarchy...')
+            print('Partitioning data with FINCH...')
         [
-            partitions, 
+            partitions,
             partition_sizes,
             partition_labels
-        ] = FINCH( 
-            data, 
+        ] = FINCH(
+            data,
             ensure_early_exit=False,
             verbose=verbose,
             low_memory_nndescent=self.low_memory_nndescent,
             distance=self.distance,
             ann_threshold=self.real_nn_threshold
         )
-        
-        if stop_at_partition is not None or partition_sizes[-1] < 3:
-            if verbose:
-                print('Filtering last partitions')
-            stop_at_partition = -1 if stop_at_partition is None else stop_at_partition
-            
-            partition_sizes = partition_sizes[:stop_at_partition]
-            partitions = partitions[:, :stop_at_partition]
-            partition_labels = partition_labels[:stop_at_partition]
+
+        self.clustering_output = partitions, partition_sizes, partition_labels
+
+        return partitions, partition_sizes, partition_labels
+
+    def fit(
+            self,
+            data,
+            y=None,
+            verbose=True,
+            skip_clustering_if_done=True
+    ):
+        if self.clustering_output is not None and skip_clustering_if_done:
+            partitions, partition_sizes, partition_labels = self.clustering_output
+        else:
+            [
+                partitions,
+                partition_sizes,
+                partition_labels
+            ] = self.fit_only_clustering(data, verbose=verbose)
 
         if verbose:
             print(f'Projecting to {self.dim} dimensions...')
-
-        projection, projected_centroid_radii, projected_centroids, pca, scaler, points_means, points_max_radii, projected_anchors = multi_step_projection(
+        [
+            projection,
+            projected_centroid_radii,
+            projected_centroids,
+            pca,
+            scaler,
+            points_means,
+            points_max_radii,
+            projected_anchors
+        ] = multi_step_projection(
             data, 
             partitions,
             partition_labels,
@@ -72,7 +86,7 @@ class HNNEProjector:
             real_nn_threshold=self.real_nn_threshold,
             partition_sizes=partition_sizes,
             projection_type=self.projection_type,
-            decompress_points=self.decompress_points
+            decompression_level=self.decompression_level
         ) 
         
         self.pca = pca
@@ -85,7 +99,7 @@ class HNNEProjector:
         self.partitions = partitions
         self.projected_anchors = projected_anchors
         
-        return projection
+        return projection, partitions
         
     def transform(self, data):
         projections = []
@@ -125,6 +139,9 @@ class HNNEProjector:
             projections.append(projected_point)
 
         return np.array(projections)
+
+    def fit_transform(self, *args, **kwargs):
+        return self.fit(*args, **kwargs)
 
     def save(self, path):
         with open(path, 'wb') as f:

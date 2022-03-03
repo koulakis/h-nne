@@ -1,1 +1,1 @@
-from .projector import HNNEProjector
+from .projector import HNNE
