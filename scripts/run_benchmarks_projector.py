@@ -32,6 +32,7 @@ def main(
         compute_trustworthiness: bool = False,
         projection_type: str = 'pca',
         decompression_level: int = 2,
+        min_size_top_level: int = 3,
         verbose: bool = False
 ):
     if dataset_group == DatasetGroup.large:
@@ -74,7 +75,8 @@ def main(
                 projection_type=projection_type,
                 nn_distance=finch_distance,
                 low_memory_nndescent=False,
-                decompression_level=decompression_level
+                decompression_level=decompression_level,
+                min_size_top_level=min_size_top_level
             )
 
             _, time_elapsed_finch = time_function_call(hnne.fit_only_clustering, data, verbose=verbose)

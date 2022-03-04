@@ -36,9 +36,12 @@ def clust_rank(
         orig_dist[:, 0] = 1e12
         print('Step PyNNDescent done ...')
 
-    A = sp.csr_matrix((np.ones_like(initial_rank, dtype=np.float32), (np.arange(0, s), initial_rank)), shape=(s, s))
+    sparce_adjacency_matrix = sp.csr_matrix(
+        (np.ones_like(initial_rank, dtype=np.float32),
+         (np.arange(0, s), initial_rank)),
+        shape=(s, s))
     
-    return A, orig_dist, initial_rank
+    return sparce_adjacency_matrix, orig_dist, initial_rank
 
 
 def get_clust(a, orig_dist, min_sim=None):
@@ -135,6 +138,7 @@ def FINCH(
     group, num_clust = get_clust(adj, [], min_sim)
     
     c, mat = get_merge([], group, data)
+    lowest_level_centroids = mat
     
     if verbose:
         print('Partition 0: {} clusters'.format(num_clust))
@@ -147,10 +151,7 @@ def FINCH(
     c_ = c
     k = 1
     num_clust = [num_clust]
-    adjacency_matrices = [adj]
-    partition_clustering=[]
-    cluster_dists = []
-    first_neighbors_list = []
+    partition_clustering = []
     while exit_clust > 1:    
         adj, orig_dist, first_neighbors = clust_rank(
             mat,
@@ -161,11 +162,8 @@ def FINCH(
             ann_threshold=ann_threshold
         )
         u, num_clust_curr = get_clust(adj, orig_dist, min_sim)
-        
-        adjacency_matrices.append(adj)
+
         partition_clustering.append(u)
-        cluster_dists.append(orig_dist)
-        first_neighbors_list.append(first_neighbors)
         
         c_, mat = get_merge(c_, u, data)
         c = np.column_stack((c, c_))
@@ -182,4 +180,4 @@ def FINCH(
             print('Partition {}: {} clusters'.format(k, num_clust[k]))
         k += 1
 
-    return c, num_clust, partition_clustering
+    return c, num_clust, partition_clustering, lowest_level_centroids

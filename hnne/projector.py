@@ -3,14 +3,13 @@ from dataclasses import dataclass
 from typing import Optional, List
 
 import numpy as np
-from tqdm import tqdm
 from sklearn.neighbors import NearestNeighbors
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
 from sklearn.base import BaseEstimator
 from pynndescent import NNDescent
 
-from hnne.finch_clustering import cool_mean, FINCH
+from hnne.finch_clustering import FINCH
 from hnne.hierarchical_projection import multi_step_projection
 
 
@@ -19,13 +18,14 @@ class ClusteringParameters:
     partitions: np.ndarray
     partition_sizes: np.ndarray
     partition_labels: np.ndarray
+    lowest_level_centroids: np.ndarray
 
 
 @dataclass
 class ProjectionParameters:
     pca: Optional[PCA]
     scaler: StandardScaler
-    lowest_level_centroids: np.ndarray
+    # lowest_level_centroids: np.ndarray
     projected_centroid_radii: List[np.ndarray]
     projected_centroids: List[np.ndarray]
     points_means: List[np.ndarray]
@@ -44,7 +44,7 @@ class HNNE(BaseEstimator):
             nn_distance='cosine',
             low_memory_nndescent=False,
             decompression_level=2,
-            min_size_top_level=5
+            min_size_top_level=3
     ):
         self.inflate_pointclouds = inflate_pointclouds
         self.radius_shrinking = radius_shrinking
@@ -64,7 +64,8 @@ class HNNE(BaseEstimator):
         [
             partitions,
             partition_sizes,
-            partition_labels
+            partition_labels,
+            lowest_level_centroids
         ] = FINCH(
             data,
             ensure_early_exit=False,
@@ -87,7 +88,12 @@ class HNNE(BaseEstimator):
         partitions = partitions[:, :max_partition_idx]
         partition_labels = partition_labels[:max_partition_idx]
 
-        self.clustering_parameters = ClusteringParameters(partitions, partition_sizes, partition_labels)
+        self.clustering_parameters = ClusteringParameters(
+            partitions,
+            partition_sizes,
+            partition_labels,
+            lowest_level_centroids
+        )
 
         return partitions, partition_sizes, partition_labels
 
@@ -137,7 +143,7 @@ class HNNE(BaseEstimator):
         self.projection_parameters = ProjectionParameters(
             pca=pca,
             scaler=scaler,
-            lowest_level_centroids=cool_mean(data, partitions[:, 0]),
+            # lowest_level_centroids=cool_mean(data, partitions[:, 0]),
             projected_centroid_radii=projected_centroid_radii,
             projected_centroids=projected_centroids,
             points_means=points_means,
@@ -153,8 +159,6 @@ class HNNE(BaseEstimator):
         cparams = self.clustering_parameters
         pparams = self.projection_parameters
 
-        projections = []
-
 #         knn_index = NNDescent(
 #             self.lowest_level_centroids,
 #             n_neighbors=1,
@@ -164,34 +168,27 @@ class HNNE(BaseEstimator):
 #         nearest_anchor_idxs = knn_index.query(data, k=1)[0].flatten()
 
         print('Creating tree...')
-        nbrs = NearestNeighbors(n_neighbors=1, algorithm='ball_tree').fit(pparams.lowest_level_centroids)
+        nbrs = NearestNeighbors(n_neighbors=1, algorithm='ball_tree').fit(cparams.lowest_level_centroids)
         print('Finding nns...')
         _, nearest_anchor_idxs = nbrs.kneighbors(data)
         nearest_anchor_idxs = nearest_anchor_idxs.flatten()
+        print('Projecting points')
 
-#         from sklearn import metrics
-#         nn_dists = metrics.pairwise.pairwise_distances(data, self.lowest_level_centroids, metric='cosine')
-#         nearest_anchor_idxs = np.argmin(nn_dists, axis=1).flatten()
-        
-        for i, point in enumerate(tqdm(data)):
-#             nearest_anchor_idx = np.argmin(np.linalg.norm(point - self.lowest_level_centroids, axis=1))
-            nearest_anchor_idx = nearest_anchor_idxs[i]
-            projected_nearest_anchor = pparams.projected_centroids[-2][nearest_anchor_idx]
-            projected_nearest_anchor_radius = pparams.projected_centroid_radii[-1][nearest_anchor_idx]
-            
-            pca_projected_point = pparams.scaler.transform([point])[0]
-            pca_projected_point = pparams.pca.transform([pca_projected_point])[0]
+        # Compute parameters related to the nearest anchors
+        projected_nearest_anchors = pparams.projected_centroids[-2][nearest_anchor_idxs]
+        max_radii = np.expand_dims(pparams.points_max_radii[-1][nearest_anchor_idxs], axis=-1)
+        centroid_radii = np.expand_dims(pparams.projected_centroid_radii[-1][nearest_anchor_idxs], axis=-1)
 
-            max_radius = pparams.points_max_radii[-1][cparams.partitions[:, 0] == nearest_anchor_idx][0, 0]
-            points_mean = pparams.points_means[-1][nearest_anchor_idx]
-            normalized_point = (pca_projected_point - points_mean) / max_radius
-            projected_point = (
-                    normalized_point * pparams.projected_centroid_radii[-1][nearest_anchor_idx]
-                    + projected_nearest_anchor)
-            
-            projections.append(projected_point)
+        # Project the points with pca
+        pca_projected_points = pparams.scaler.transform(data)
+        pca_projected_points = pparams.pca.transform(pca_projected_points)
 
-        return np.array(projections)
+        # Normalize relative to the maximum anchor group original point radius
+        points_mean = pparams.points_means[-1][nearest_anchor_idxs]
+        normalized_points = (pca_projected_points - points_mean) / max_radii
+
+        # Scale based on the nearest anchor radii
+        return projected_nearest_anchors + normalized_points * centroid_radii
 
     def fit_transform(self, *args, **kwargs):
         return self.fit(*args, **kwargs)

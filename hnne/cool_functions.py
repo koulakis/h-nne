@@ -47,11 +47,11 @@ def cool_max_radius(data, partition):
             partition: Partition of the data points in the form of an (n, ) array with k different integer values.
 
         Returns:
-            A (n, ) array with the maximum vector norms over the k partition values for each row of the original data.
+            A (k, ) array with the maximum vector norms over the k partition values.
         """
     norms = np.linalg.norm(data, axis=1)
     norm_maxes = cool_max(norms, partition)
-    return norm_maxes[partition]
+    return norm_maxes
 
 
 def cool_std(data, means, partition, epsilon=1e-12):

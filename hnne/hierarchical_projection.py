@@ -95,10 +95,11 @@ def move_projected_points_to_anchors(
     points_mean = points_mean_per_partition[partition]
     points_centered = points - points_mean
 
-    points_max_radius = np.expand_dims(cool_max_radius(points_centered, partition), axis=1)
+    anchors_max_radius = cool_max_radius(points_centered, partition)
+    points_max_radius = np.expand_dims(anchors_max_radius[partition], axis=1)
     points_max_radius = np.where(points_max_radius == 0, 1., points_max_radius)
     
-    return anchors_per_point + anchor_radii_per_point * points_centered / points_max_radius, anchor_radii[:, 0].tolist(), points_mean_per_partition, points_max_radius
+    return anchors_per_point + anchor_radii_per_point * points_centered / points_max_radius, anchor_radii[:, 0], points_mean_per_partition, anchors_max_radius
 
 
 def project_single_cluster_with_pca(data, dim=2):
