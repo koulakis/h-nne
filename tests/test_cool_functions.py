@@ -35,7 +35,7 @@ def test_cool_functions_simple_example():
             .groupby('p')
             .max()
         )[partition])
-    cool = cf.cool_max_radius(data, partition)
+    cool = cf.cool_max_radius(data, partition)[partition]
 
     np.testing.assert_array_equal(gt_max_rad, cool, err_msg='Cool max radius failed.')
 
@@ -49,7 +49,7 @@ def test_cool_functions_simple_example():
 
     # Cool normalize
     gt_norm = (data - gt_mean[partition]) / gt_std[partition]
-    cool = cf.cool_normalize(data, partition)
+    cool, _ = cf.cool_normalize(data, partition)
 
     np.testing.assert_array_equal(gt_norm, cool, err_msg='Cool normalize failed.')
 

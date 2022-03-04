@@ -1,6 +1,6 @@
 import pickle
 from dataclasses import dataclass
-from typing import Optional, List
+from typing import Optional, List, Any
 
 import numpy as np
 from sklearn.neighbors import NearestNeighbors
@@ -29,6 +29,7 @@ class ProjectionParameters:
     projected_centroids: List[np.ndarray]
     points_means: List[np.ndarray]
     points_max_radii: List[np.ndarray]
+    inflation_params_list: List[Any]
 
 
 class HNNE(BaseEstimator):
@@ -123,7 +124,8 @@ class HNNE(BaseEstimator):
             pca,
             scaler,
             points_means,
-            points_max_radii
+            points_max_radii,
+            inflation_params_list
         ] = multi_step_projection(
             data, 
             partitions,
@@ -144,7 +146,8 @@ class HNNE(BaseEstimator):
             projected_centroid_radii=projected_centroid_radii,
             projected_centroids=projected_centroids,
             points_means=points_means,
-            points_max_radii=points_max_radii
+            points_max_radii=points_max_radii,
+            inflation_params_list=inflation_params_list
         )
         
         return projection
@@ -170,18 +173,35 @@ class HNNE(BaseEstimator):
         nearest_anchor_idxs = nearest_anchor_idxs.flatten()
         print('Projecting points')
 
+        # Project the points with pca
+        data = pparams.scaler.transform(data)
+        data = pparams.pca.transform(data)
+
+        # Apply inflation to points, if applicable
+        if self.inflate_pointclouds:
+            for rot, norm1_params, norm2_params in pparams.inflation_params_list[-1]:
+                m1, s1 = norm1_params
+                m1, s1 = m1[nearest_anchor_idxs], s1[nearest_anchor_idxs]
+                m2, s2 = norm2_params
+                m2, s2 = m2[nearest_anchor_idxs], s2[nearest_anchor_idxs]
+                data = (data - m1) / s1
+                data = np.dot(data, rot)
+                data = (data - m2) / s2
+                data = np.dot(data, np.linalg.inv(rot))
+                data_norms = np.linalg.norm(data, axis=-1)
+                data = np.where(
+                    np.expand_dims(data_norms > 1, axis=-1),
+                    data / np.expand_dims(data_norms, axis=-1),
+                    data)
+
         # Compute parameters related to the nearest anchors
         projected_nearest_anchors = pparams.projected_centroids[-2][nearest_anchor_idxs]
         max_radii = np.expand_dims(pparams.points_max_radii[-1][nearest_anchor_idxs], axis=-1)
         centroid_radii = np.expand_dims(pparams.projected_centroid_radii[-1][nearest_anchor_idxs], axis=-1)
 
-        # Project the points with pca
-        pca_projected_points = pparams.scaler.transform(data)
-        pca_projected_points = pparams.pca.transform(pca_projected_points)
-
         # Normalize relative to the maximum anchor group original point radius
         points_mean = pparams.points_means[-1][nearest_anchor_idxs]
-        normalized_points = (pca_projected_points - points_mean) / max_radii
+        normalized_points = (data - points_mean) / max_radii
 
         # Scale based on the nearest anchor radii
         return projected_nearest_anchors + normalized_points * centroid_radii

@@ -6,25 +6,26 @@ import numpy as np
 from hnne.cool_functions import cool_normalize
 
 
-# Point inflation
 def norm_angle(data, theta, partition):
     rot = np.array([
         [np.cos(theta), np.sin(theta)],
         [-np.sin(theta), np.cos(theta)]
     ])
 
-    data = cool_normalize(data, partition)
+    data, norm1_params = cool_normalize(data, partition)
 
     rotated_data = np.dot(data, rot)
-    rotated_data = cool_normalize(rotated_data, partition)
+    rotated_data, norm2_params = cool_normalize(rotated_data, partition)
 
-    return np.dot(rotated_data, np.linalg.inv(rot))
+    return np.dot(rotated_data, np.linalg.inv(rot)), [rot, norm1_params, norm2_params]
 
 
 def norm_angles(data, angles, partition_mapping):
+    inflation_params = []
     for angle in angles:
-        data = norm_angle(data, angle, partition_mapping)
-    return data
+        data, params = norm_angle(data, angle, partition_mapping)
+        inflation_params.append(params)
+    return data, inflation_params
 
 
 def norm_angle_3d(data, alpha, beta, gamma, partition):
@@ -46,10 +47,10 @@ def norm_angle_3d(data, alpha, beta, gamma, partition):
 
     rot = np.dot(r_x, np.dot(r_y, r_z))
 
-    data = cool_normalize(data, partition)
+    data, norm1_params = cool_normalize(data, partition)
 
     rotated_data = np.dot(data, rot)
-    rotated_data = cool_normalize(rotated_data, partition)
+    rotated_data, norm2_params = cool_normalize(rotated_data, partition)
 
     return np.dot(rotated_data, np.linalg.inv(rot))
 

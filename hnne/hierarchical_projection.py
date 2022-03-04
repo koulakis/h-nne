@@ -81,8 +81,7 @@ def move_projected_points_to_anchors(
     anchor_radii_per_point = anchor_radii[partition]
     
     points_mean_per_partition = cool_mean(points, partition)
-    points_mean = points_mean_per_partition[partition]
-    points_centered = points - points_mean
+    points_centered = points - points_mean_per_partition[partition]
 
     anchors_max_radius = cool_max_radius(points_centered, partition)
     points_max_radius = np.expand_dims(anchors_max_radius[partition], axis=1)
@@ -151,6 +150,7 @@ def multi_step_projection(
     moved_anchors = [curr_anchors]
     points_means = []
     points_max_radii = []
+    inflation_params_list = []
     for cnt, i in enumerate(reversed_partition_range):
         if i == 0:
             partition_mapping = partitions[:, 0]
@@ -161,10 +161,11 @@ def multi_step_projection(
         if inflate_pointclouds:
             if dim == 2:
                 thetas = np.linspace(0, np.pi/2, 6)
-                current_points = norm_angles(
+                current_points, inflation_params = norm_angles(
                     current_points, 
                     thetas, 
                     partition_mapping)
+                inflation_params_list.append(inflation_params)
             if dim == 3:
                 alphas, beta, gammas = 3*[np.linspace(0, np.pi/2, 6)]
                 current_points = norm_angles_3d(
@@ -188,4 +189,4 @@ def multi_step_projection(
         points_means.append(points_mean)
         points_max_radii.append(points_max_radius)
 
-    return curr_anchors, anchor_radii, moved_anchors, pca, scaler, points_means, points_max_radii
+    return curr_anchors, anchor_radii, moved_anchors, pca, scaler, points_means, points_max_radii, inflation_params_list

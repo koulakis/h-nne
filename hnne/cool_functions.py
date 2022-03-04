@@ -84,7 +84,8 @@ def cool_normalize(data, partition):
         Returns:
             A (n, f) matrix of the original data normalized over the k partition classes.
         """
-    means = cool_mean(data, partition)[partition]
-    stds = cool_std(data, means, partition)[partition]
+    means = cool_mean(data, partition)
+    means_per_partition = means[partition]
+    stds = cool_std(data, means_per_partition, partition)
 
-    return (data - means) / stds
+    return (data - means_per_partition) / stds[partition], [means, stds]
