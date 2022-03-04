@@ -43,7 +43,8 @@ class HNNE(BaseEstimator):
             projection_type='pca',
             nn_distance='cosine',
             low_memory_nndescent=False,
-            decompression_level=0
+            decompression_level=2,
+            min_size_top_level=5
     ):
         self.inflate_pointclouds = inflate_pointclouds
         self.radius_shrinking = radius_shrinking
@@ -53,6 +54,7 @@ class HNNE(BaseEstimator):
         self.nn_distance = nn_distance
         self.low_memory_nndescent = low_memory_nndescent
         self.decompression_level = decompression_level
+        self.min_size_top_level = min_size_top_level
         self.clustering_parameters: Optional[ClusteringParameters] = None
         self.projection_parameters: Optional[ProjectionParameters] = None
 
@@ -71,6 +73,19 @@ class HNNE(BaseEstimator):
             distance=self.nn_distance,
             ann_threshold=self.real_nn_threshold
         )
+
+        large_enough_partitions = np.argwhere(np.array(partition_sizes) >= self.min_size_top_level)
+        if len(large_enough_partitions) == 0:
+            raise ValueError(
+                f'The dataset has too few points resulting to a hierarchy with sizes {partition_sizes}. Please provide'
+                f' a larger amount of data till there exists one partition of size {self.min_size_top_level}.')
+        max_partition_idx = int(large_enough_partitions.max()) + 1
+        if max_partition_idx < len(partition_sizes) and verbose:
+            print(f'Removing {len(partition_sizes) - max_partition_idx} levels from the top to start with a level'
+                  f'of size at least {self.min_size_top_level}.')
+        partition_sizes = partition_sizes[:max_partition_idx]
+        partitions = partitions[:, :max_partition_idx]
+        partition_labels = partition_labels[:max_partition_idx]
 
         self.clustering_parameters = ClusteringParameters(partitions, partition_sizes, partition_labels)
 
