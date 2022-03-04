@@ -25,12 +25,10 @@ class ClusteringParameters:
 class ProjectionParameters:
     pca: Optional[PCA]
     scaler: StandardScaler
-    # lowest_level_centroids: np.ndarray
     projected_centroid_radii: List[np.ndarray]
     projected_centroids: List[np.ndarray]
     points_means: List[np.ndarray]
     points_max_radii: List[np.ndarray]
-    projected_anchors: List[np.ndarray]
 
 
 class HNNE(BaseEstimator):
@@ -125,8 +123,7 @@ class HNNE(BaseEstimator):
             pca,
             scaler,
             points_means,
-            points_max_radii,
-            projected_anchors
+            points_max_radii
         ] = multi_step_projection(
             data, 
             partitions,
@@ -143,12 +140,10 @@ class HNNE(BaseEstimator):
         self.projection_parameters = ProjectionParameters(
             pca=pca,
             scaler=scaler,
-            # lowest_level_centroids=cool_mean(data, partitions[:, 0]),
             projected_centroid_radii=projected_centroid_radii,
             projected_centroids=projected_centroids,
             points_means=points_means,
-            points_max_radii=points_max_radii,
-            projected_anchors=projected_anchors,
+            points_max_radii=points_max_radii
         )
         
         return projection

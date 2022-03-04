@@ -1,23 +1,11 @@
 import numpy as np
-from sklearn.decomposition import TruncatedSVD, PCA
+from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import pairwise
 from pynndescent import NNDescent
 
-from hnne.finch_clustering import FINCH
 from hnne.cool_functions import cool_mean, cool_max_radius
 from hnne.point_spreading import atlas_decompression, norm_angles, norm_angles_3d
-
-
-def project_with_adjacency_matrix(data, adjacency_matrix, dim=2):
-    truncated_svd = TruncatedSVD(n_components=dim, n_iter=10, random_state=42)
-    truncated_svd.fit(adjacency_matrix)
-    
-    projection = truncated_svd.components_
-    w = np.dot(data.T, projection.T)
-    proj = np.dot(data, w)
-    
-    return StandardScaler().fit_transform(proj)
 
 
 def project_with_pca(data, partitions, partition_sizes, dim=2, min_number_of_anchors=1000):
@@ -99,7 +87,11 @@ def move_projected_points_to_anchors(
     points_max_radius = np.expand_dims(anchors_max_radius[partition], axis=1)
     points_max_radius = np.where(points_max_radius == 0, 1., points_max_radius)
     
-    return anchors_per_point + anchor_radii_per_point * points_centered / points_max_radius, anchor_radii[:, 0], points_mean_per_partition, anchors_max_radius
+    return (
+        anchors_per_point + anchor_radii_per_point * points_centered / points_max_radius,
+        anchor_radii[:, 0],
+        points_mean_per_partition,
+        anchors_max_radius)
 
 
 def project_single_cluster_with_pca(data, dim=2):
@@ -198,59 +190,4 @@ def multi_step_projection(
         points_means.append(points_mean)
         points_max_radii.append(points_max_radius)
 
-    return curr_anchors, anchor_radii, moved_anchors, pca, scaler, points_means, points_max_radii, projected_anchors
-
-
-def full_projection(
-        data, 
-        distance='cosine',
-        large_datasets=False,
-        ann_threshold=30000,
-        project_first_partition_pca=False,
-        radius_shrinking=0.66,
-        inflate_pointclouds=True,
-        projection_type='pca',
-        dim=2,
-        stop_at_partition=None,
-        decompression_level=2
-):
-    print(f'Extracting FINCH partitions with {distance} distance...')
-    [
-        partitions, 
-        partition_sizes,
-        partition_labels
-    ] = FINCH( 
-        data, 
-        ensure_early_exit=True, 
-        verbose=large_datasets,
-        low_memory_nndescent=large_datasets,
-        distance=distance,
-        ann_threshold=ann_threshold
-    )
-            
-    if partition_sizes[-1] < 3:
-        partition_sizes = partition_sizes[:-1]
-        partitions = partitions[:, :-1]
-        partition_labels = partition_labels[:-1]
-        
-    if stop_at_partition is not None:
-        partition_sizes = partition_sizes[:stop_at_partition]
-        partitions = partitions[:, :stop_at_partition]
-        partition_labels = partition_labels[:stop_at_partition]
-
-    print(f'Projecting to {dim} dimensions...')
-    projection, projected_centroid_radii, projected_centroids, _, _, _, _, _ = multi_step_projection(
-        data, 
-        partitions,
-        partition_labels,
-        inflate_pointclouds=inflate_pointclouds,
-        radius_shrinking=radius_shrinking,
-        dim=dim,
-        partition_sizes=partition_sizes,
-        real_nn_threshold=ann_threshold,
-        projection_type=projection_type,
-        project_first_partition_pca=project_first_partition_pca,
-        decompression_level=decompression_level
-    )
-    
-    return projection, projected_centroid_radii, projected_centroids, partitions
+    return curr_anchors, anchor_radii, moved_anchors, pca, scaler, points_means, points_max_radii
