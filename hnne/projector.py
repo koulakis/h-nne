@@ -134,7 +134,8 @@ class HNNE(BaseEstimator):
             real_nn_threshold=self.real_nn_threshold,
             partition_sizes=partition_sizes,
             projection_type=self.projection_type,
-            decompression_level=self.decompression_level
+            decompression_level=self.decompression_level,
+            verbose=verbose
         ) 
 
         self.projection_parameters = ProjectionParameters(

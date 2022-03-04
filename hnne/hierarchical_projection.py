@@ -39,7 +39,8 @@ def project_points(
     else:
         raise ValueError(f'Invalid projection type: {projection_type}')
         
-    # TODO: Return an appropriate model/function for each projection
+    # TODO: Handle the case where pca is not defined (e.g. random projection)
+    # TODO: Add an option to perform full (randomized) PCA
     return projected_points, pca, partition_idx, scaler
 
 
@@ -125,8 +126,8 @@ def multi_step_projection(
     real_nn_threshold=40000,
     partition_sizes=None,
     projection_type='pca',
-    project_first_partition_pca=False,
-    decompression_level=2
+    decompression_level=2,
+    verbose=False
 ):
     projected_points, pca, pca_partition_idx, scaler = project_points(
         data, 
@@ -135,13 +136,10 @@ def multi_step_projection(
         partition_sizes=partition_sizes, 
         partitions=partitions)
 
-    print(partition_sizes)
+    if verbose:
+        print(partition_sizes)
     reversed_partition_range = list(reversed(range(partitions.shape[1])))
-    projected_anchors = get_finch_anchors(projected_points, partitions=partitions)    
-    # TODO: Further develop this step to efficiently project all anchors by: projecting to 64 dims with PCA (if dim > 64) and then parallel projecting 
-    # TODO: anchor clusters with PCA to 2 (or other) dimensions. If projection_dim > 64, then just project everything with the same PCA.
-    if project_first_partition_pca:
-        projected_points = project_with_pca_based_on_first_partition(data, partitions, partition_sizes, partition_idx=0, dim=dim)
+    projected_anchors = get_finch_anchors(projected_points, partitions=partitions)
     
     projected_anchors = [projected_points] + projected_anchors
     curr_anchors = projected_anchors[-1]
