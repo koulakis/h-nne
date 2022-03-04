@@ -13,6 +13,7 @@ def clust_rank(
         verbose=False,
         low_memory_nndescent=False,
         ann_threshold=30000):
+    knn_index = None
     s = mat.shape[0]
     if initial_rank is not None:
         orig_dist = []
@@ -41,7 +42,7 @@ def clust_rank(
          (np.arange(0, s), initial_rank)),
         shape=(s, s))
     
-    return sparce_adjacency_matrix, orig_dist, initial_rank
+    return sparce_adjacency_matrix, orig_dist, initial_rank, knn_index
 
 
 def get_clust(a, orig_dist, min_sim=None):
@@ -80,7 +81,7 @@ def req_numclust(c, data, req_clust, distance):
     iter_ = len(np.unique(c)) - req_clust
     c_, mat = get_merge([], c, data)
     for i in range(iter_):
-        adj, orig_dist, _ = clust_rank(mat, initial_rank=None, distance=distance)
+        adj, orig_dist, _, _ = clust_rank(mat, initial_rank=None, distance=distance)
         adj = update_adj(adj, orig_dist)
         u, _ = get_clust(adj, [], min_sim=None)
         c_, mat = get_merge(c_, u, data)
@@ -125,7 +126,7 @@ def FINCH(
 
     min_sim = None
     
-    adj, orig_dist, first_neighbors = clust_rank(
+    adj, orig_dist, first_neighbors, _ = clust_rank(
         data,
         initial_rank,
         distance,
@@ -152,8 +153,9 @@ def FINCH(
     k = 1
     num_clust = [num_clust]
     partition_clustering = []
+    first_knn_index = None
     while exit_clust > 1:    
-        adj, orig_dist, first_neighbors = clust_rank(
+        adj, orig_dist, first_neighbors, knn_index = clust_rank(
             mat,
             initial_rank,
             distance,
@@ -161,6 +163,8 @@ def FINCH(
             low_memory_nndescent=low_memory_nndescent,
             ann_threshold=ann_threshold
         )
+        if first_knn_index is None:
+            first_knn_index = knn_index
         u, num_clust_curr = get_clust(adj, orig_dist, min_sim)
 
         partition_clustering.append(u)
@@ -180,4 +184,4 @@ def FINCH(
             print('Partition {}: {} clusters'.format(k, num_clust[k]))
         k += 1
 
-    return c, num_clust, partition_clustering, lowest_level_centroids
+    return c, num_clust, partition_clustering, lowest_level_centroids, first_knn_index

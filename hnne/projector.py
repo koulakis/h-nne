@@ -19,6 +19,7 @@ class ClusteringParameters:
     partition_sizes: np.ndarray
     partition_labels: np.ndarray
     lowest_level_centroids: np.ndarray
+    knn_index: Optional[Any]
 
 
 @dataclass
@@ -64,7 +65,8 @@ class HNNE(BaseEstimator):
             partitions,
             partition_sizes,
             partition_labels,
-            lowest_level_centroids
+            lowest_level_centroids,
+            knn_index
         ] = FINCH(
             data,
             ensure_early_exit=False,
@@ -91,7 +93,8 @@ class HNNE(BaseEstimator):
             partitions,
             partition_sizes,
             partition_labels,
-            lowest_level_centroids
+            lowest_level_centroids,
+            knn_index
         )
 
         return partitions, partition_sizes, partition_labels
@@ -152,27 +155,32 @@ class HNNE(BaseEstimator):
         
         return projection
         
-    def transform(self, data):
+    def transform(self, data, ann_threshold=2000, verbose=True):
         if self.clustering_parameters is None or self.projection_parameters is None:
             raise ValueError('Unable to project as h-nne has not been fitted on a dataset.')
         cparams = self.clustering_parameters
         pparams = self.projection_parameters
 
-#         knn_index = NNDescent(
-#             self.lowest_level_centroids,
-#             n_neighbors=1,
-#             metric='cosine',
-#             verbose=True,
-#             low_memory=True)
-#         nearest_anchor_idxs = knn_index.query(data, k=1)[0].flatten()
+        if verbose:
+            print('Finding nearest centroids to new data...')
+        if len(cparams.lowest_level_centroids) > ann_threshold:
+            if cparams.knn_index is None:
+                knn_index = NNDescent(
+                    cparams.lowest_level_centroids,
+                    n_neighbors=2,
+                    metric='cosine',
+                    verbose=True,
+                    low_memory=True)
+            else:
+                knn_index = cparams.knn_index
+            nearest_anchor_idxs = knn_index.query(data, k=1)[0].flatten()
+            print(nearest_anchor_idxs.max())
+        else:
+            nbrs = NearestNeighbors(n_neighbors=1, algorithm='ball_tree').fit(cparams.lowest_level_centroids)
+            _, nearest_anchor_idxs = nbrs.kneighbors(data)
+            nearest_anchor_idxs = nearest_anchor_idxs.flatten()
 
-        print('Creating tree...')
-        nbrs = NearestNeighbors(n_neighbors=1, algorithm='ball_tree').fit(cparams.lowest_level_centroids)
-        print('Finding nns...')
-        _, nearest_anchor_idxs = nbrs.kneighbors(data)
-        nearest_anchor_idxs = nearest_anchor_idxs.flatten()
-        print('Projecting points')
-
+        print('Projecting data...')
         # Project the points with pca
         data = pparams.scaler.transform(data)
         data = pparams.pca.transform(data)
