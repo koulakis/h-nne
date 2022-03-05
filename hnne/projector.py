@@ -213,8 +213,7 @@ class HNNE(BaseEstimator):
         # Scale based on the nearest anchor radii
         return projected_nearest_anchors + normalized_points * centroid_radii
 
-    def fit_transform(self, *args, **kwargs):
-        return self.fit(*args, **kwargs)
+    fit_transform = fit
 
     def save(self, path):
         with open(path, 'wb') as f:
