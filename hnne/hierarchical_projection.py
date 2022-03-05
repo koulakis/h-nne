@@ -8,11 +8,12 @@ from hnne.cool_functions import cool_mean, cool_max_radius
 from hnne.point_spreading import atlas_decompression, norm_angles, norm_angles_3d
 
 
-def project_with_pca(data, partitions, partition_sizes, dim=2, min_number_of_anchors=1000):
+def project_with_pca(data, partitions, partition_sizes, dim=2, min_number_of_anchors=1000, verbose=False):
     pca = PCA(n_components=dim)
     large_partitions = np.where(np.array(partition_sizes) > min_number_of_anchors)[0]
     partition_idx = large_partitions.max() if any(large_partitions) else 0
-    print(f'Projecting on the {partition_idx}th partition with {partition_sizes[partition_idx]} anchors.')
+    if verbose:
+        print(f'Projecting on the {partition_idx}th partition with {partition_sizes[partition_idx]} anchors.')
     selected_anchors = cool_mean(data, partitions[:, partition_idx])
     pca.fit(selected_anchors)
     return pca.transform(data), pca, partition_idx
@@ -23,14 +24,21 @@ def project_points(
         dim=2, 
         projection_type='pca',
         partition_sizes=None, 
-        partitions=None):
+        partitions=None,
+        verbose=False
+):
     scaler = StandardScaler()
     data = scaler.fit_transform(data)
     pca = None
     partition_idx = None
 
     if len(data) < dim or projection_type == 'pca':
-        projected_points, pca, partition_idx = project_with_pca(data, partitions, partition_sizes, dim=dim)
+        projected_points, pca, partition_idx = project_with_pca(
+            data,
+            partitions,
+            partition_sizes,
+            dim=dim,
+            verbose=verbose)
     elif projection_type == 'random_projection':
         random_components = np.random.random((data.shape[1], dim))
         projected_points = np.dot(data, random_components) 
@@ -57,14 +65,16 @@ def move_projected_points_to_anchors(
         anchors, 
         partition,
         radius_shrinking=.66,
-        real_nn_threshold=30000
+        real_nn_threshold=30000,
+        verbose=False
 ):
     if anchors.shape[0] <= real_nn_threshold:
         distance_matrix = pairwise.pairwise_distances(anchors, anchors, metric='euclidean')
         np.fill_diagonal(distance_matrix, 1e12)
         nearest_neighbor_idx = np.argmin(distance_matrix, axis=1).flatten()
     else:
-        print('Using ann to approximate 1-nns...')
+        if verbose:
+            print('Using ann to approximate 1-nns...')
         knn_index = NNDescent(
             anchors, 
             n_neighbors=2, 
@@ -133,7 +143,9 @@ def multi_step_projection(
         dim=dim, 
         projection_type=projection_type,
         partition_sizes=partition_sizes, 
-        partitions=partitions)
+        partitions=partitions,
+        verbose=verbose
+    )
 
     if verbose:
         print(partition_sizes)
@@ -181,6 +193,7 @@ def multi_step_projection(
             partition_mapping,
             radius_shrinking=radius_shrinking,
             real_nn_threshold=real_nn_threshold,
+            verbose=verbose
         )
         if cnt <= decompression_level - 2:
             curr_anchors = atlas_decompression(curr_anchors)

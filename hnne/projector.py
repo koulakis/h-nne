@@ -169,7 +169,7 @@ class HNNE(BaseEstimator):
                     cparams.lowest_level_centroids,
                     n_neighbors=2,
                     metric=self.metric,
-                    verbose=True,
+                    verbose=verbose,
                     low_memory=True)
             else:
                 knn_index = cparams.knn_index
@@ -178,7 +178,8 @@ class HNNE(BaseEstimator):
             orig_dist = metrics.pairwise.pairwise_distances(data, cparams.lowest_level_centroids, metric=self.metric)
             nearest_anchor_idxs = np.argmin(orig_dist, axis=1)
 
-        print('Projecting data...')
+        if verbose:
+            print('Projecting data...')
         # Project the points with pca
         data = pparams.scaler.transform(data)
         data = pparams.pca.transform(data)

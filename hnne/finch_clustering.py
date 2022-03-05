@@ -22,9 +22,11 @@ def clust_rank(
         np.fill_diagonal(orig_dist, 1e12)
         initial_rank = np.argmin(orig_dist, axis=1)
     else:
-        print('Using PyNNDescent to compute 1st-neighbours at this step ...')
+        if verbose:
+            print('Using PyNNDescent to compute 1st-neighbours at this step ...')
         if low_memory_nndescent:
-            print('Running on low memory...')
+            if verbose:
+                print('Running on low memory...')
         knn_index = NNDescent(
             mat, 
             n_neighbors=2, 
@@ -35,7 +37,8 @@ def clust_rank(
         result, orig_dist = knn_index.neighbor_graph
         initial_rank = result[:, 1]
         orig_dist[:, 0] = 1e12
-        print('Step PyNNDescent done ...')
+        if verbose:
+            print('Step PyNNDescent done ...')
 
     sparce_adjacency_matrix = sp.csr_matrix(
         (np.ones_like(initial_rank, dtype=np.float32),
