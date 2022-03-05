@@ -185,7 +185,7 @@ class HNNE(BaseEstimator):
         data = pparams.pca.transform(data)
 
         # Apply inflation to points, if applicable
-        if self.inflate_pointclouds:
+        if self.inflate_pointclouds and self.dim <= 3:
             for rot, norm1_params, norm2_params in pparams.inflation_params_list[-1]:
                 m1, s1 = norm1_params
                 m1, s1 = m1[nearest_anchor_idxs], s1[nearest_anchor_idxs]

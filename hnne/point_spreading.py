@@ -52,13 +52,15 @@ def norm_angle_3d(data, alpha, beta, gamma, partition):
     rotated_data = np.dot(data, rot)
     rotated_data, norm2_params = cool_normalize(rotated_data, partition)
 
-    return np.dot(rotated_data, np.linalg.inv(rot))
+    return np.dot(rotated_data, np.linalg.inv(rot)), [rot, norm1_params, norm2_params]
 
 
 def norm_angles_3d(data, alphas, betas, gammas, partition_mapping):
+    inflation_params = []
     for alpha, beta, gamma in zip(alphas, betas, gammas):
-        data = norm_angle_3d(data, alpha, beta, gamma, partition_mapping)
-    return data
+        data, params = norm_angle_3d(data, alpha, beta, gamma, partition_mapping)
+        inflation_params.append(params)
+    return data, inflation_params
 
 
 # Force atlas decompression

@@ -96,7 +96,9 @@ def move_projected_points_to_anchors(
     anchors_max_radius = cool_max_radius(points_centered, partition)
     points_max_radius = np.expand_dims(anchors_max_radius[partition], axis=1)
     points_max_radius = np.where(points_max_radius == 0, 1., points_max_radius)
-    
+
+    # print(anchors_per_point.shape, anchor_radii_per_point.shape, points_centered.shape, points_max_radius.shape)
+
     return (
         anchors_per_point + anchor_radii_per_point * points_centered / points_max_radius,
         anchor_radii[:, 0],
@@ -138,6 +140,11 @@ def multi_step_projection(
     decompression_level=2,
     verbose=False
 ):
+    if dim > 2 and decompression_level > 0:
+        if verbose:
+            print('Deactivating decompression as it is applicable only when projecting to 2 dimensions.')
+        decompression_level = 0
+
     projected_points, pca, pca_partition_idx, scaler = project_points(
         data, 
         dim=dim, 
@@ -180,12 +187,13 @@ def multi_step_projection(
                 inflation_params_list.append(inflation_params)
             if dim == 3:
                 alphas, beta, gammas = 3*[np.linspace(0, np.pi/2, 6)]
-                current_points = norm_angles_3d(
+                current_points, inflation_params = norm_angles_3d(
                     current_points, 
                     alphas, 
                     beta, 
                     gammas,
                     partition_mapping)
+                inflation_params_list.append(inflation_params)
 
         curr_anchors, radii, points_mean, points_max_radius = move_projected_points_to_anchors(
             current_points,
