@@ -73,7 +73,7 @@ def main(
                 dim=dim,
                 real_nn_threshold=ann_threshold,
                 projection_type=projection_type,
-                nn_distance=finch_distance,
+                metric=finch_distance,
                 low_memory_nndescent=False,
                 decompression_level=decompression_level,
                 min_size_top_level=min_size_top_level

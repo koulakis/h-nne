@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from typing import Optional, List, Any
 
 import numpy as np
-from sklearn.neighbors import NearestNeighbors
+from sklearn import metrics
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
 from sklearn.base import BaseEstimator
@@ -41,7 +41,7 @@ class HNNE(BaseEstimator):
             dim=2,
             real_nn_threshold=20000,
             projection_type='pca',
-            nn_distance='cosine',
+            metric='cosine',
             low_memory_nndescent=False,
             decompression_level=2,
             min_size_top_level=3
@@ -51,7 +51,7 @@ class HNNE(BaseEstimator):
         self.dim = dim
         self.real_nn_threshold = real_nn_threshold
         self.projection_type = projection_type
-        self.nn_distance = nn_distance
+        self.metric = metric
         self.low_memory_nndescent = low_memory_nndescent
         self.decompression_level = decompression_level
         self.min_size_top_level = min_size_top_level
@@ -72,7 +72,7 @@ class HNNE(BaseEstimator):
             ensure_early_exit=False,
             verbose=verbose,
             low_memory_nndescent=self.low_memory_nndescent,
-            distance=self.nn_distance,
+            distance=self.metric,
             ann_threshold=self.real_nn_threshold
         )
 
@@ -155,7 +155,7 @@ class HNNE(BaseEstimator):
         
         return projection
         
-    def transform(self, data, ann_threshold=2000, verbose=True):
+    def transform(self, data, ann_point_combination_threshold=400e6, verbose=True):
         if self.clustering_parameters is None or self.projection_parameters is None:
             raise ValueError('Unable to project as h-nne has not been fitted on a dataset.')
         cparams = self.clustering_parameters
@@ -163,22 +163,20 @@ class HNNE(BaseEstimator):
 
         if verbose:
             print('Finding nearest centroids to new data...')
-        if len(cparams.lowest_level_centroids) > ann_threshold:
+        if len(cparams.lowest_level_centroids) * len(data) > ann_point_combination_threshold:
             if cparams.knn_index is None:
                 knn_index = NNDescent(
                     cparams.lowest_level_centroids,
                     n_neighbors=2,
-                    metric='cosine',
+                    metric=self.metric,
                     verbose=True,
                     low_memory=True)
             else:
                 knn_index = cparams.knn_index
             nearest_anchor_idxs = knn_index.query(data, k=1)[0].flatten()
-            print(nearest_anchor_idxs.max())
         else:
-            nbrs = NearestNeighbors(n_neighbors=1, algorithm='ball_tree').fit(cparams.lowest_level_centroids)
-            _, nearest_anchor_idxs = nbrs.kneighbors(data)
-            nearest_anchor_idxs = nearest_anchor_idxs.flatten()
+            orig_dist = metrics.pairwise.pairwise_distances(data, cparams.lowest_level_centroids, metric=self.metric)
+            nearest_anchor_idxs = np.argmin(orig_dist, axis=1)
 
         print('Projecting data...')
         # Project the points with pca
