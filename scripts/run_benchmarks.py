@@ -24,12 +24,12 @@ def main(
         scale_data: bool = False,
         dim: int = 2,
         continue_on_error: bool = False,
-        radius_shrinking: float = 0.9,
-        finch_distance: str = 'cosine',
+        radius_factor: float = 1.3,
+        metric: str = 'cosine',
         validate_only_1nn: bool = True,
         ann_threshold: int = 40000,
         compute_trustworthiness: bool = False,
-        projection_type: str = 'pca',
+        preliminary_embedding: str = 'pca',
         verbose: bool = False
 ):
     if dataset_group == DatasetGroup.large:
@@ -65,14 +65,14 @@ def main(
                 data = StandardScaler().fit_transform(data)
 
             hnne = HNNE(
-                radius_shrinking=radius_shrinking,
+                radius_factor=radius_factor,
                 dim=dim,
-                real_nn_threshold=ann_threshold,
-                projection_type=projection_type,
-                metric=finch_distance
+                ann_threshold=ann_threshold,
+                preliminary_embedding=preliminary_embedding,
+                metric=metric
             )
 
-            _, time_elapsed_finch = time_function_call(hnne.fit_only_clustering, data, verbose=verbose)
+            _, time_elapsed_finch = time_function_call(hnne.fit_only_hierarchy, data, verbose=verbose)
 
             projection, time_elapsed_projection = time_function_call(
                 hnne.fit_transform,

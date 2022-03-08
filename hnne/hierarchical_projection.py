@@ -1,3 +1,5 @@
+from enum import Enum
+
 import numpy as np
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
@@ -8,7 +10,13 @@ from hnne.cool_functions import cool_mean, cool_max_radius
 from hnne.point_spreading import norm_angles, norm_angles_3d
 
 
-def project_with_pca(data, partitions, partition_sizes, dim=2, min_number_of_anchors=1000, verbose=False):
+class PreliminaryEmbedding(str, Enum):
+    pca = 'pca'
+    pca_centroids = 'pca_centroids'
+    random_linear = 'random_linear'
+
+
+def project_with_pca_centroids(data, partitions, partition_sizes, dim=2, min_number_of_anchors=1000, verbose=False):
     pca = PCA(n_components=dim)
     large_partitions = np.where(np.array(partition_sizes) > min_number_of_anchors)[0]
     partition_idx = large_partitions.max() if any(large_partitions) else 0
@@ -16,13 +24,19 @@ def project_with_pca(data, partitions, partition_sizes, dim=2, min_number_of_anc
         print(f'Projecting on the {partition_idx}th partition with {partition_sizes[partition_idx]} anchors.')
     selected_anchors = cool_mean(data, partitions[:, partition_idx])
     pca.fit(selected_anchors)
-    return pca.transform(data), pca, partition_idx
+    return pca.transform(data), pca
+
+
+def project_with_pca(data, dim=2):
+    pca = PCA(n_components=dim)
+    transformed_data = pca.fit_transform(data)
+    return transformed_data, pca
 
 
 def project_points(
         data, 
         dim=2, 
-        projection_type='pca',
+        preliminary_embedding='pca',
         partition_sizes=None, 
         partitions=None,
         verbose=False
@@ -30,26 +44,25 @@ def project_points(
     scaler = StandardScaler()
     data = scaler.fit_transform(data)
     pca = None
-    partition_idx = None
 
-    if len(data) < dim or projection_type == 'pca':
-        projected_points, pca, partition_idx = project_with_pca(
+    if preliminary_embedding == PreliminaryEmbedding.pca:
+        projected_points, pca = project_with_pca(data, dim=dim)
+    elif len(data) < dim or preliminary_embedding == PreliminaryEmbedding.pca_centroids:
+        projected_points, pca = project_with_pca_centroids(
             data,
             partitions,
             partition_sizes,
             dim=dim,
             verbose=verbose)
-    elif projection_type == 'random_projection':
+    elif preliminary_embedding == PreliminaryEmbedding.random_linear:
         random_components = np.random.random((data.shape[1], dim))
-        projected_points = np.dot(data, random_components) 
-    elif projection_type == 'random':
-        projected_points = np.random.random(size=(data.shape[0], dim))
+        projected_points = np.dot(data, random_components)
     else:
-        raise ValueError(f'Invalid projection type: {projection_type}')
+        raise ValueError(f'Invalid preliminary embedding: {preliminary_embedding}')
         
     # TODO: Handle the case where pca is not defined (e.g. random projection)
     # TODO: Add an option to perform full (randomized) PCA
-    return projected_points, pca, partition_idx, scaler
+    return projected_points, pca, scaler
 
 
 def get_finch_anchors(projected_points, partitions=None):   
@@ -64,7 +77,7 @@ def move_projected_points_to_anchors(
         points, 
         anchors, 
         partition,
-        radius_shrinking=.9,
+        radius_factor=.9,
         real_nn_threshold=30000,
         verbose=False
 ):
@@ -84,8 +97,8 @@ def move_projected_points_to_anchors(
         nns, _ = knn_index.neighbor_graph
         nearest_neighbor_idx = nns[:, 1]
         
-    anchor_radii = np.linalg.norm(anchors - anchors[nearest_neighbor_idx], axis=1, keepdims=True)
-    anchor_radii = anchor_radii / 2 * radius_shrinking
+    anchor_distances_from_nns = np.linalg.norm(anchors - anchors[nearest_neighbor_idx], axis=1, keepdims=True)
+    anchor_radii = anchor_distances_from_nns / 3 * radius_factor
     
     anchors_per_point = anchors[partition]
     anchor_radii_per_point = anchor_radii[partition]
@@ -104,42 +117,21 @@ def move_projected_points_to_anchors(
         anchors_max_radius)
 
 
-def project_single_cluster_with_pca(data, dim=2):
-    if data.shape[0] < dim or data.shape[1] < dim:
-        return np.random.random((data.shape[0], dim))
-    data_centered = data - data.mean(axis=0)
-    pca = PCA(n_components=dim)
-    return pca.fit_transform(data_centered)
-
-
-def project_with_pca_based_on_first_partition(data, partitions, partition_sizes, partition_idx, dim=2):
-    results = np.zeros((data.shape[0], dim))
-    if data.shape[1] > 64:
-        data, _, _ = project_with_pca(data, partitions, partition_sizes, dim=64)
-    
-    partition = partitions[:, partition_idx]
-    for i in range(partition_sizes[partition_idx]):
-        cluster_idx = partition == i
-        results[cluster_idx] = project_single_cluster_with_pca(data[cluster_idx])
-    
-    return results
-
-
 def multi_step_projection(
     data, 
     partitions,
     partition_labels,
-    radius_shrinking=0.9,
+    radius_factor,
+    ann_threshold,
     dim=2,
-    real_nn_threshold=40000,
     partition_sizes=None,
-    projection_type='pca',
+    preliminary_embedding='pca',
     verbose=False
 ):
-    projected_points, pca, pca_partition_idx, scaler = project_points(
+    projected_points, pca, scaler = project_points(
         data, 
         dim=dim, 
-        projection_type=projection_type,
+        preliminary_embedding=preliminary_embedding,
         partition_sizes=partition_sizes, 
         partitions=partitions,
         verbose=verbose
@@ -186,8 +178,8 @@ def multi_step_projection(
             current_points,
             curr_anchors, 
             partition_mapping,
-            radius_shrinking=radius_shrinking,
-            real_nn_threshold=real_nn_threshold,
+            radius_factor=radius_factor,
+            real_nn_threshold=ann_threshold,
             verbose=verbose
         )
 

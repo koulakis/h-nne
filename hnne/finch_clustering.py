@@ -9,7 +9,7 @@ from hnne.cool_functions import cool_mean
 def clust_rank(
         mat,
         initial_rank=None,
-        distance='cosine',
+        metric='cosine',
         verbose=False,
         ann_threshold=30000):
     knn_index = None
@@ -17,7 +17,7 @@ def clust_rank(
     if initial_rank is not None:
         orig_dist = []
     elif s <= ann_threshold:
-        orig_dist = metrics.pairwise.pairwise_distances(mat, mat, metric=distance)
+        orig_dist = metrics.pairwise.pairwise_distances(mat, mat, metric=metric)
         np.fill_diagonal(orig_dist, 1e12)
         initial_rank = np.argmin(orig_dist, axis=1)
     else:
@@ -26,7 +26,7 @@ def clust_rank(
         knn_index = NNDescent(
             mat, 
             n_neighbors=2, 
-            metric=distance, 
+            metric=metric,
             verbose=verbose)
         result, orig_dist = knn_index.neighbor_graph
         initial_rank = result[:, 1]
@@ -78,7 +78,7 @@ def req_numclust(c, data, req_clust, distance):
     iter_ = len(np.unique(c)) - req_clust
     c_, mat = get_merge([], c, data)
     for i in range(iter_):
-        adj, orig_dist, _, _ = clust_rank(mat, initial_rank=None, distance=distance)
+        adj, orig_dist, _, _ = clust_rank(mat, initial_rank=None, metric=distance)
         adj = update_adj(adj, orig_dist)
         u, _ = get_clust(adj, [], min_sim=None)
         c_, mat = get_merge(c_, u, data)

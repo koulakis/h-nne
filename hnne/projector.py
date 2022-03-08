@@ -10,11 +10,11 @@ from sklearn.base import BaseEstimator
 from pynndescent import NNDescent
 
 from hnne.finch_clustering import FINCH
-from hnne.hierarchical_projection import multi_step_projection
+from hnne.hierarchical_projection import multi_step_projection, PreliminaryEmbedding
 
 
 @dataclass
-class ClusteringParameters:
+class HierarchyParameters:
     partitions: np.ndarray
     partition_sizes: np.ndarray
     partition_labels: np.ndarray
@@ -34,24 +34,76 @@ class ProjectionParameters:
 
 
 class HNNE(BaseEstimator):
+    """Hierarchical 1-Nearest Neighbor graph based Embedding
+
+    A fast hierarchical dimensionality reduction algorithm.
+
+    Parameters
+    ----------
+    dim: int (default 2)
+        The dimension of the target space of the projection.
+
+    metric: str (default 'cosine')
+        The metric used to compute the distances when forming the h-nne hierarchy levels. Its value should be
+        supported by both sklearn and pynndescent. Some possible values: 'cityblock', 'cosine', 'euclidean', 'l1', 'l2',
+      'manhattan'.
+
+    radius_factor: float (default 1.3)
+        A factor by which the radii around centroids are reduced in order to avoid overlaps during the projection.
+        A theoretical limit of 3/5=0.6 would guarantee no overlaps between points belonging to different anchors
+        in the hierarchy, the default is set to 1.3 for visualization purposes. If you use the algorithm purely for
+        dimensionality reduction, then please set this to 0.6.
+
+    ann_threshold: int (default 40000)
+        A threshold above which approximate nearest neighbors will be computed instead of real nearest neighbors when
+        building the levels of h-nne.
+
+    preliminary_embedding: str (default 'pca')
+        The preliminary embedding used to initiate h-nne. In terms of performance pca > pca_centroids > random_linear
+        and in terms of speed performance pca < pca_centroids < random_linear.
+
+    Attributes
+    ----------
+    min_size_top_level: int (default 3)
+        The minimum number of centroids existing on the top level of the hierarchy. To achieve this minimum, the top
+        levels which have fewer centroids are removed.
+
+    hierarchy_parameters: Optional[HierarchyParameters]
+        An object holding the parameters which encode the h-nne hierarchy. They are saved during fitting and can be
+        reused both during projecting new points or projecting again with different parameters, e.g. dim.
+
+    References
+    ----------
+
+    [1] Hierarchical Nearest Neighbor Graph Embedding for Efficient Dimensionality Reduction.
+    [2] Sarfraz, Saquib and Sharma, Vivek and Stiefelhagen, Rainer. Efficient Parameter-Free Clustering
+        Using First Neighbor Relations. Proceedings of the IEEE/CVF Conference on Computer Vision and
+        Pattern Recognition (CVPR). June 2019.
+
+    """
     def __init__(
             self,
-            radius_shrinking=0.9,
-            dim=2,
-            real_nn_threshold=40000,
-            projection_type='pca',
-            metric='cosine'
+            dim: int = 2,
+            metric: str = 'cosine',
+            radius_factor: float = 1.3,
+            ann_threshold: int = 40000,
+            preliminary_embedding: str = 'pca'
     ):
-        self.radius_shrinking = radius_shrinking
+        self.radius_factor = radius_factor
         self.dim = dim
-        self.real_nn_threshold = real_nn_threshold
-        self.projection_type = projection_type
+        self.ann_threshold = ann_threshold
+        try:
+            preliminary_embedding = PreliminaryEmbedding[preliminary_embedding]
+        except KeyError:
+            raise ValueError(
+                f'Invalid preliminary embedding. Please select one from: {", ".join(PreliminaryEmbedding)}.')
+        self.preliminary_embedding = preliminary_embedding
         self.metric = metric
-        self.min_size_top_level = 3
-        self.clustering_parameters: Optional[ClusteringParameters] = None
+        self.min_size_top_level: int = 3
+        self.hierarchy_parameters: Optional[HierarchyParameters] = None
         self.projection_parameters: Optional[ProjectionParameters] = None
 
-    def fit_only_clustering(self, data, verbose=True):
+    def fit_only_hierarchy(self, X: np.ndarray, verbose: bool = True):
         if verbose:
             print('Partitioning data with FINCH...')
         [
@@ -61,11 +113,11 @@ class HNNE(BaseEstimator):
             lowest_level_centroids,
             knn_index
         ] = FINCH(
-            data,
+            data=X,
             ensure_early_exit=False,
             verbose=verbose,
             distance=self.metric,
-            ann_threshold=self.real_nn_threshold
+            ann_threshold=self.ann_threshold
         )
 
         large_enough_partitions = np.argwhere(np.array(partition_sizes) >= self.min_size_top_level)
@@ -81,7 +133,7 @@ class HNNE(BaseEstimator):
         partitions = partitions[:, :max_partition_idx]
         partition_labels = partition_labels[:max_partition_idx]
 
-        self.clustering_parameters = ClusteringParameters(
+        self.hierarchy_parameters = HierarchyParameters(
             partitions,
             partition_sizes,
             partition_labels,
@@ -91,24 +143,43 @@ class HNNE(BaseEstimator):
 
         return partitions, partition_sizes, partition_labels
 
+    # noinspection PyUnusedLocal
     def fit(
             self,
-            data,
-            y=None,
-            verbose=True,
-            skip_clustering_if_done=True
+            X: np.ndarray,
+            y: np.ndarray = None,
+            verbose: bool = True,
+            skip_hierarchy_building_if_done: bool = True
     ):
-        if self.clustering_parameters is not None and skip_clustering_if_done:
-            cparams = self.clustering_parameters
+        """
+        Build an h-nne hierarchy based on X and use it to project X.
+
+        Parameters
+        ----------
+        X: array, shape (n_samples, n_features)
+            The data to project.
+
+        y: array, shape (n_samples, )
+            Ignored.
+
+        verbose: bool
+            If true, plot info and progress messages.
+
+        skip_hierarchy_building_if_done:
+            If true, the h-nne hierarchy will be built only on the first run of fit. Warning: if you need to project
+            a new dataset with the same HNNE object, then you have to set this to false.
+        """
+        if self.hierarchy_parameters is not None and skip_hierarchy_building_if_done:
+            hparams = self.hierarchy_parameters
             partitions, partition_sizes, partition_labels = \
-                cparams.partitions, cparams.partition_sizes, cparams.partition_labels
+                hparams.partitions, hparams.partition_sizes, hparams.partition_labels
 
         else:
             [
                 partitions,
                 partition_sizes,
                 partition_labels
-            ] = self.fit_only_clustering(data, verbose=verbose)
+            ] = self.fit_only_hierarchy(X, verbose=verbose)
 
         if verbose:
             print(f'Projecting to {self.dim} dimensions...')
@@ -122,14 +193,14 @@ class HNNE(BaseEstimator):
             points_max_radii,
             inflation_params_list
         ] = multi_step_projection(
-            data, 
-            partitions,
-            partition_labels,
-            radius_shrinking=self.radius_shrinking,
+            data=X,
+            partitions=partitions,
+            partition_labels=partition_labels,
+            radius_factor=self.radius_factor,
+            ann_threshold=self.ann_threshold,
             dim=self.dim,
-            real_nn_threshold=self.real_nn_threshold,
             partition_sizes=partition_sizes,
-            projection_type=self.projection_type,
+            preliminary_embedding=self.preliminary_embedding,
             verbose=verbose
         ) 
 
@@ -145,34 +216,34 @@ class HNNE(BaseEstimator):
         
         return projection
         
-    def transform(self, data, ann_point_combination_threshold=400e6, verbose=True):
-        if self.clustering_parameters is None or self.projection_parameters is None:
+    def transform(self, X: np.ndarray, ann_point_combination_threshold: int = 400e6, verbose: bool = True):
+        if self.hierarchy_parameters is None or self.projection_parameters is None:
             raise ValueError('Unable to project as h-nne has not been fitted on a dataset.')
-        cparams = self.clustering_parameters
+        hparams = self.hierarchy_parameters
         pparams = self.projection_parameters
 
         if verbose:
             print('Finding nearest centroids to new data...')
-        if len(cparams.lowest_level_centroids) * len(data) > ann_point_combination_threshold:
-            if cparams.knn_index is None:
+        if len(hparams.lowest_level_centroids) * len(X) > ann_point_combination_threshold:
+            if hparams.knn_index is None:
                 knn_index = NNDescent(
-                    cparams.lowest_level_centroids,
+                    hparams.lowest_level_centroids,
                     n_neighbors=2,
                     metric=self.metric,
                     verbose=verbose,
                     low_memory=True)
             else:
-                knn_index = cparams.knn_index
-            nearest_anchor_idxs = knn_index.query(data, k=1)[0].flatten()
+                knn_index = hparams.knn_index
+            nearest_anchor_idxs = knn_index.query(X, k=1)[0].flatten()
         else:
-            orig_dist = metrics.pairwise.pairwise_distances(data, cparams.lowest_level_centroids, metric=self.metric)
+            orig_dist = metrics.pairwise.pairwise_distances(X, hparams.lowest_level_centroids, metric=self.metric)
             nearest_anchor_idxs = np.argmin(orig_dist, axis=1)
 
         if verbose:
             print('Projecting data...')
         # Project the points with pca
-        data = pparams.scaler.transform(data)
-        data = pparams.pca.transform(data)
+        X = pparams.scaler.transform(X)
+        X = pparams.pca.transform(X)
 
         # Apply inflation to points, if applicable
         if self.dim <= 3:
@@ -181,15 +252,15 @@ class HNNE(BaseEstimator):
                 m1, s1 = m1[nearest_anchor_idxs], s1[nearest_anchor_idxs]
                 m2, s2 = norm2_params
                 m2, s2 = m2[nearest_anchor_idxs], s2[nearest_anchor_idxs]
-                data = (data - m1) / s1
-                data = np.dot(data, rot)
-                data = (data - m2) / s2
-                data = np.dot(data, np.linalg.inv(rot))
-                data_norms = np.linalg.norm(data, axis=-1)
-                data = np.where(
+                X = (X - m1) / s1
+                X = np.dot(X, rot)
+                X = (X - m2) / s2
+                X = np.dot(X, np.linalg.inv(rot))
+                data_norms = np.linalg.norm(X, axis=-1)
+                X = np.where(
                     np.expand_dims(data_norms > 1, axis=-1),
-                    data / np.expand_dims(data_norms, axis=-1),
-                    data)
+                    X / np.expand_dims(data_norms, axis=-1),
+                    X)
 
         # Compute parameters related to the nearest anchors
         projected_nearest_anchors = pparams.projected_centroids[-2][nearest_anchor_idxs]
@@ -198,7 +269,7 @@ class HNNE(BaseEstimator):
 
         # Normalize relative to the maximum anchor group original point radius
         points_mean = pparams.points_means[-1][nearest_anchor_idxs]
-        normalized_points = (data - points_mean) / max_radii
+        normalized_points = (X - points_mean) / max_radii
 
         # Scale based on the nearest anchor radii
         return projected_nearest_anchors + normalized_points * centroid_radii
