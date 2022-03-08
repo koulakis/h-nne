@@ -24,8 +24,6 @@ setuptools.setup(
         "typer",
         "pandas",
         "cython",
-        "fa2",
-        "networkx"
     ],
     extras_require={
         "benchmarking": [
