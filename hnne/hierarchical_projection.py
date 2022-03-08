@@ -5,7 +5,7 @@ from sklearn.metrics import pairwise
 from pynndescent import NNDescent
 
 from hnne.cool_functions import cool_mean, cool_max_radius
-from hnne.point_spreading import atlas_decompression, norm_angles, norm_angles_3d
+from hnne.point_spreading import norm_angles, norm_angles_3d
 
 
 def project_with_pca(data, partitions, partition_sizes, dim=2, min_number_of_anchors=1000, verbose=False):
@@ -97,8 +97,6 @@ def move_projected_points_to_anchors(
     points_max_radius = np.expand_dims(anchors_max_radius[partition], axis=1)
     points_max_radius = np.where(points_max_radius == 0, 1., points_max_radius)
 
-    # print(anchors_per_point.shape, anchor_radii_per_point.shape, points_centered.shape, points_max_radius.shape)
-
     return (
         anchors_per_point + anchor_radii_per_point * points_centered / points_max_radius,
         anchor_radii[:, 0],
@@ -137,14 +135,8 @@ def multi_step_projection(
     real_nn_threshold=40000,
     partition_sizes=None,
     projection_type='pca',
-    decompression_level=2,
     verbose=False
 ):
-    if dim > 2 and decompression_level > 0:
-        if verbose:
-            print('Deactivating decompression as it is applicable only when projecting to 2 dimensions.')
-        decompression_level = 0
-
     projected_points, pca, pca_partition_idx, scaler = project_points(
         data, 
         dim=dim, 
@@ -161,9 +153,6 @@ def multi_step_projection(
     
     projected_anchors = [projected_points] + projected_anchors
     curr_anchors = projected_anchors[-1]
-    
-    if decompression_level > 0:
-        curr_anchors = atlas_decompression(curr_anchors)
     
     anchor_radii = []
     moved_anchors = [curr_anchors]
@@ -203,8 +192,7 @@ def multi_step_projection(
             real_nn_threshold=real_nn_threshold,
             verbose=verbose
         )
-        if cnt <= decompression_level - 2:
-            curr_anchors = atlas_decompression(curr_anchors)
+
         anchor_radii.append(radii)
         moved_anchors.append(curr_anchors)
         points_means.append(points_mean)

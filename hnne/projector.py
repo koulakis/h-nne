@@ -43,7 +43,6 @@ class HNNE(BaseEstimator):
             projection_type='pca',
             metric='cosine',
             low_memory_nndescent=False,
-            decompression_level=2,
             min_size_top_level=3
     ):
         self.inflate_pointclouds = inflate_pointclouds
@@ -53,7 +52,6 @@ class HNNE(BaseEstimator):
         self.projection_type = projection_type
         self.metric = metric
         self.low_memory_nndescent = low_memory_nndescent
-        self.decompression_level = decompression_level
         self.min_size_top_level = min_size_top_level
         self.clustering_parameters: Optional[ClusteringParameters] = None
         self.projection_parameters: Optional[ProjectionParameters] = None
@@ -139,7 +137,6 @@ class HNNE(BaseEstimator):
             real_nn_threshold=self.real_nn_threshold,
             partition_sizes=partition_sizes,
             projection_type=self.projection_type,
-            decompression_level=self.decompression_level,
             verbose=verbose
         ) 
 

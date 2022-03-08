@@ -31,7 +31,6 @@ def main(
         ann_threshold: int = 20000,
         compute_trustworthiness: bool = False,
         projection_type: str = 'pca',
-        decompression_level: int = 2,
         min_size_top_level: int = 3,
         verbose: bool = False
 ):
@@ -75,7 +74,6 @@ def main(
                 projection_type=projection_type,
                 metric=finch_distance,
                 low_memory_nndescent=False,
-                decompression_level=decompression_level,
                 min_size_top_level=min_size_top_level
             )
 

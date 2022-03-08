@@ -1,6 +1,3 @@
-import networkx as nx
-from scipy.spatial import Voronoi
-from fa2 import ForceAtlas2
 import numpy as np
 
 from hnne.cool_functions import cool_normalize
@@ -61,29 +58,3 @@ def norm_angles_3d(data, alphas, betas, gammas, partition_mapping):
         data, params = norm_angle_3d(data, alpha, beta, gamma, partition_mapping)
         inflation_params.append(params)
     return data, inflation_params
-
-
-# Force atlas decompression
-def force_directed_graph_decompression(points, weights, verbose=False, iterations=50):
-    voronoi = Voronoi(points)
-
-    graph = nx.Graph()
-    for i, point in enumerate(points):
-        graph.add_node(i, pos=point)
-    for i, j in voronoi.ridge_points:
-        graph.add_edge(i, j, weight=1 / (weights[i] * weights[j]))
-
-    initial_positions = nx.get_node_attributes(graph, 'pos')
-    forceatlas2 = ForceAtlas2(outboundAttractionDistribution=True, verbose=verbose)
-    positions = forceatlas2.forceatlas2_networkx_layout(graph, pos=initial_positions, iterations=iterations)
-
-    max_radius = np.linalg.norm(np.array(list(positions.values())), axis=1).max()
-    normalized_points = [(i, tuple(np.array(point) / max_radius)) for i, point in positions.items()]
-    moved_points = np.array(list(map(lambda x: x[1], sorted(normalized_points, key=lambda x: x[0]))))
-
-    return moved_points
-
-
-def atlas_decompression(points):
-    weights = np.ones(len(points))
-    return force_directed_graph_decompression(points, weights=weights)
