@@ -36,23 +36,18 @@ class ProjectionParameters:
 class HNNE(BaseEstimator):
     def __init__(
             self,
-            inflate_pointclouds=True,
-            radius_shrinking=0.66,
+            radius_shrinking=0.9,
             dim=2,
-            real_nn_threshold=20000,
+            real_nn_threshold=40000,
             projection_type='pca',
-            metric='cosine',
-            low_memory_nndescent=False,
-            min_size_top_level=3
+            metric='cosine'
     ):
-        self.inflate_pointclouds = inflate_pointclouds
         self.radius_shrinking = radius_shrinking
         self.dim = dim
         self.real_nn_threshold = real_nn_threshold
         self.projection_type = projection_type
         self.metric = metric
-        self.low_memory_nndescent = low_memory_nndescent
-        self.min_size_top_level = min_size_top_level
+        self.min_size_top_level = 3
         self.clustering_parameters: Optional[ClusteringParameters] = None
         self.projection_parameters: Optional[ProjectionParameters] = None
 
@@ -69,7 +64,6 @@ class HNNE(BaseEstimator):
             data,
             ensure_early_exit=False,
             verbose=verbose,
-            low_memory_nndescent=self.low_memory_nndescent,
             distance=self.metric,
             ann_threshold=self.real_nn_threshold
         )
@@ -131,7 +125,6 @@ class HNNE(BaseEstimator):
             data, 
             partitions,
             partition_labels,
-            inflate_pointclouds=self.inflate_pointclouds,
             radius_shrinking=self.radius_shrinking,
             dim=self.dim,
             real_nn_threshold=self.real_nn_threshold,
@@ -182,7 +175,7 @@ class HNNE(BaseEstimator):
         data = pparams.pca.transform(data)
 
         # Apply inflation to points, if applicable
-        if self.inflate_pointclouds and self.dim <= 3:
+        if self.dim <= 3:
             for rot, norm1_params, norm2_params in pparams.inflation_params_list[-1]:
                 m1, s1 = norm1_params
                 m1, s1 = m1[nearest_anchor_idxs], s1[nearest_anchor_idxs]

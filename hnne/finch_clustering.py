@@ -11,7 +11,6 @@ def clust_rank(
         initial_rank=None,
         distance='cosine',
         verbose=False,
-        low_memory_nndescent=False,
         ann_threshold=30000):
     knn_index = None
     s = mat.shape[0]
@@ -24,16 +23,11 @@ def clust_rank(
     else:
         if verbose:
             print('Using PyNNDescent to compute 1st-neighbours at this step ...')
-        if low_memory_nndescent:
-            if verbose:
-                print('Running on low memory...')
         knn_index = NNDescent(
             mat, 
             n_neighbors=2, 
             metric=distance, 
-            verbose=verbose, 
-            low_memory=low_memory_nndescent,
-            n_trees=16 if low_memory_nndescent else None)
+            verbose=verbose)
         result, orig_dist = knn_index.neighbor_graph
         initial_rank = result[:, 1]
         orig_dist[:, 0] = 1e12
@@ -98,8 +92,7 @@ def FINCH(
         distance='cosine',
         ensure_early_exit=True,
         verbose=True,
-        low_memory_nndescent=False,
-        ann_threshold=30000):
+        ann_threshold=40000):
     """ FINCH clustering algorithm.
 
     Args:
@@ -109,7 +102,6 @@ def FINCH(
         ensure_early_exit: [Optional flag] may help in large, high dim datasets,
             ensure purity of merges and helps early exit
         verbose: Print verbose output.
-        low_memory_nndescent: Reduce the number of trees used in NNDescent to lower memory requirements
         ann_threshold: data size threshold below which nearest neighbors are approximated with ANNs
     Returns:
         c: NxP matrix where P is the partition. Cluster label for every partition.
@@ -134,7 +126,6 @@ def FINCH(
         initial_rank,
         distance,
         verbose=verbose,
-        low_memory_nndescent=low_memory_nndescent,
         ann_threshold=ann_threshold
     )
     initial_rank = None
@@ -163,7 +154,6 @@ def FINCH(
             initial_rank,
             distance,
             verbose=verbose,
-            low_memory_nndescent=low_memory_nndescent,
             ann_threshold=ann_threshold
         )
         if first_knn_index is None:

@@ -64,7 +64,7 @@ def move_projected_points_to_anchors(
         points, 
         anchors, 
         partition,
-        radius_shrinking=.66,
+        radius_shrinking=.9,
         real_nn_threshold=30000,
         verbose=False
 ):
@@ -129,8 +129,7 @@ def multi_step_projection(
     data, 
     partitions,
     partition_labels,
-    inflate_pointclouds=True,
-    radius_shrinking=0.66,
+    radius_shrinking=0.9,
     dim=2,
     real_nn_threshold=40000,
     partition_sizes=None,
@@ -166,23 +165,22 @@ def multi_step_projection(
             partition_mapping = partition_labels[i - 1]
         
         current_points = projected_anchors[i]
-        if inflate_pointclouds:
-            if dim == 2:
-                thetas = np.linspace(0, np.pi/2, 6)
-                current_points, inflation_params = norm_angles(
-                    current_points, 
-                    thetas, 
-                    partition_mapping)
-                inflation_params_list.append(inflation_params)
-            if dim == 3:
-                alphas, beta, gammas = 3*[np.linspace(0, np.pi/2, 6)]
-                current_points, inflation_params = norm_angles_3d(
-                    current_points, 
-                    alphas, 
-                    beta, 
-                    gammas,
-                    partition_mapping)
-                inflation_params_list.append(inflation_params)
+        if dim == 2:
+            thetas = np.linspace(0, np.pi/2, 6)
+            current_points, inflation_params = norm_angles(
+                current_points,
+                thetas,
+                partition_mapping)
+            inflation_params_list.append(inflation_params)
+        if dim == 3:
+            alphas, beta, gammas = 3*[np.linspace(0, np.pi/2, 6)]
+            current_points, inflation_params = norm_angles_3d(
+                current_points,
+                alphas,
+                beta,
+                gammas,
+                partition_mapping)
+            inflation_params_list.append(inflation_params)
 
         curr_anchors, radii, points_mean, points_max_radius = move_projected_points_to_anchors(
             current_points,

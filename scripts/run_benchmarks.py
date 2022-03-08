@@ -24,14 +24,12 @@ def main(
         scale_data: bool = False,
         dim: int = 2,
         continue_on_error: bool = False,
-        inflate_pointclouds: bool = True,
-        radius_shrinking: float = 0.66,
+        radius_shrinking: float = 0.9,
         finch_distance: str = 'cosine',
         validate_only_1nn: bool = True,
-        ann_threshold: int = 20000,
+        ann_threshold: int = 40000,
         compute_trustworthiness: bool = False,
         projection_type: str = 'pca',
-        min_size_top_level: int = 3,
         verbose: bool = False
 ):
     if dataset_group == DatasetGroup.large:
@@ -67,14 +65,11 @@ def main(
                 data = StandardScaler().fit_transform(data)
 
             hnne = HNNE(
-                inflate_pointclouds=inflate_pointclouds,
                 radius_shrinking=radius_shrinking,
                 dim=dim,
                 real_nn_threshold=ann_threshold,
                 projection_type=projection_type,
-                metric=finch_distance,
-                low_memory_nndescent=False,
-                min_size_top_level=min_size_top_level
+                metric=finch_distance
             )
 
             _, time_elapsed_finch = time_function_call(hnne.fit_only_clustering, data, verbose=verbose)
