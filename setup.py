@@ -25,15 +25,6 @@ setuptools.setup(
         "pandas",
         "cython",
     ],
-    extras_require={
-        "benchmarking": [
-            "torchvision",
-            "gensim",
-            "Pillow",
-            "mat73",
-            "matplotlib"
-        ]
-    },
     test_suite="pytest",
     tests_require=["pytest"],
 )
