@@ -48,11 +48,10 @@ class HNNE(BaseEstimator):
         supported by both sklearn and pynndescent. Some possible values: 'cityblock', 'cosine', 'euclidean', 'l1', 'l2',
       'manhattan'.
 
-    radius_factor: float (default 1.3)
-        A factor by which the radii around centroids are reduced in order to avoid overlaps during the projection.
-        A theoretical limit of 3/5=0.6 would guarantee no overlaps between points belonging to different anchors
-        in the hierarchy, the default is set to 1.3 for visualization purposes. If you use the algorithm purely for
-        dimensionality reduction, then please set this to 0.6.
+    radius: float (default 0.45)
+        The radius used to place points around centroids as a portion of the distance between nearest neighbor anchors.
+        Though the theoretical value which guarantees no overlaps between anchor points is 0.2, 0.45 is a value which
+        provides in practice denser visualizations with minimal loss in performance.
 
     ann_threshold: int (default 40000)
         A threshold above which approximate nearest neighbors will be computed instead of real nearest neighbors when
@@ -85,18 +84,19 @@ class HNNE(BaseEstimator):
             self,
             dim: int = 2,
             metric: str = 'cosine',
-            radius_factor: float = 1.3,
+            radius: float = 0.4,
             ann_threshold: int = 40000,
             preliminary_embedding: str = 'pca'
     ):
-        self.radius_factor = radius_factor
+        self.radius = radius
         self.dim = dim
         self.ann_threshold = ann_threshold
         try:
             preliminary_embedding = PreliminaryEmbedding[preliminary_embedding]
         except KeyError:
             raise ValueError(
-                f'Invalid preliminary embedding. Please select one from: {", ".join(PreliminaryEmbedding)}.')
+                f'Invalid preliminary embedding: {preliminary_embedding}. '
+                f'Please select one from: {", ".join(PreliminaryEmbedding)}.')
         self.preliminary_embedding = preliminary_embedding
         self.metric = metric
         self.min_size_top_level: int = 3
@@ -196,7 +196,7 @@ class HNNE(BaseEstimator):
             data=X,
             partitions=partitions,
             partition_labels=partition_labels,
-            radius_factor=self.radius_factor,
+            radius=self.radius,
             ann_threshold=self.ann_threshold,
             dim=self.dim,
             partition_sizes=partition_sizes,

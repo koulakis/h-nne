@@ -77,7 +77,7 @@ def move_projected_points_to_anchors(
         points, 
         anchors, 
         partition,
-        radius_factor=.9,
+        radius=.9,
         real_nn_threshold=30000,
         verbose=False
 ):
@@ -98,7 +98,7 @@ def move_projected_points_to_anchors(
         nearest_neighbor_idx = nns[:, 1]
         
     anchor_distances_from_nns = np.linalg.norm(anchors - anchors[nearest_neighbor_idx], axis=1, keepdims=True)
-    anchor_radii = anchor_distances_from_nns / 3 * radius_factor
+    anchor_radii = anchor_distances_from_nns * radius
     
     anchors_per_point = anchors[partition]
     anchor_radii_per_point = anchor_radii[partition]
@@ -121,7 +121,7 @@ def multi_step_projection(
     data, 
     partitions,
     partition_labels,
-    radius_factor,
+    radius,
     ann_threshold,
     dim=2,
     partition_sizes=None,
@@ -178,7 +178,7 @@ def multi_step_projection(
             current_points,
             curr_anchors, 
             partition_mapping,
-            radius_factor=radius_factor,
+            radius=radius,
             real_nn_threshold=ann_threshold,
             verbose=verbose
         )
