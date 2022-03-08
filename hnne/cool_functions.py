@@ -31,11 +31,10 @@ def cool_max(arr, partition):
             A (k, ) array with the values maximized over the k partition values.
         """
     s = arr.size
-    arrs = sp.spdiags(arr, 0, arr.size, arr.size)
-    un = np.unique(partition)
-    umat = sp.csr_matrix((np.ones(s, dtype='float32'), (partition, np.arange(0, s))), shape=(len(un), s))
-    result = np.max(umat * arrs, axis=-1).toarray()
-    return np.squeeze(result)
+    partition_size = np.max(partition) + 1
+    umat = sp.csr_matrix((arr, (partition, np.arange(0, s))), shape=(partition_size, s))
+    result = np.max(umat, axis=-1)
+    return np.squeeze(result.toarray())
 
 
 def cool_max_radius(data, partition):
