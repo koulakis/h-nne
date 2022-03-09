@@ -227,9 +227,9 @@ class HNNE(BaseEstimator):
         if verbose:
             print('Finding nearest centroids to new data...')
         if len(hparams.lowest_level_centroids) * len(X) > ann_point_combination_threshold:
-            print('Setting up once a knn index for the last level centroids...')
             nns = 30
             if hparams.knn_index is None:
+                print('Setting up once a knn index for the last level centroids...')
                 knn_index = NNDescent(
                     hparams.lowest_level_centroids,
                     n_neighbors=nns,
