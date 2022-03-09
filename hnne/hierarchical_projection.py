@@ -92,8 +92,7 @@ def move_projected_points_to_anchors(
             anchors, 
             n_neighbors=2, 
             metric='euclidean', 
-            verbose=True, 
-            low_memory=True)
+            verbose=verbose)
         nns, _ = knn_index.neighbor_graph
         nearest_neighbor_idx = nns[:, 1]
         

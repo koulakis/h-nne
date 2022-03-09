@@ -31,6 +31,7 @@ class ProjectionParameters:
     points_means: List[np.ndarray]
     points_max_radii: List[np.ndarray]
     inflation_params_list: List[Any]
+    knn_index: Optional[Any]
 
 
 class HNNE(BaseEstimator):
@@ -211,7 +212,8 @@ class HNNE(BaseEstimator):
             projected_centroids=projected_centroids,
             points_means=points_means,
             points_max_radii=points_max_radii,
-            inflation_params_list=inflation_params_list
+            inflation_params_list=inflation_params_list,
+            knn_index=None
         )
         
         return projection
@@ -225,13 +227,18 @@ class HNNE(BaseEstimator):
         if verbose:
             print('Finding nearest centroids to new data...')
         if len(hparams.lowest_level_centroids) * len(X) > ann_point_combination_threshold:
+            print('Setting up once a knn index for the last level centroids...')
             nns = 30
-            knn_index = NNDescent(
-                hparams.lowest_level_centroids,
-                n_neighbors=nns,
-                metric=self.metric,
-                verbose=verbose)
-            knn_index.prepare()
+            if hparams.knn_index is None:
+                knn_index = NNDescent(
+                    hparams.lowest_level_centroids,
+                    n_neighbors=nns,
+                    metric=self.metric,
+                    verbose=verbose)
+                knn_index.prepare()
+                hparams.knn_index = knn_index
+            else:
+                knn_index = hparams.knn_index
             nearest_anchor_idxs = knn_index.query(X, k=nns)[0][:, 0]
         else:
             orig_dist = metrics.pairwise.pairwise_distances(X, hparams.lowest_level_centroids, metric=self.metric)
