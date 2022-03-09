@@ -225,16 +225,14 @@ class HNNE(BaseEstimator):
         if verbose:
             print('Finding nearest centroids to new data...')
         if len(hparams.lowest_level_centroids) * len(X) > ann_point_combination_threshold:
-            if hparams.knn_index is None:
-                knn_index = NNDescent(
-                    hparams.lowest_level_centroids,
-                    n_neighbors=2,
-                    metric=self.metric,
-                    verbose=verbose,
-                    low_memory=True)
-            else:
-                knn_index = hparams.knn_index
-            nearest_anchor_idxs = knn_index.query(X, k=1)[0].flatten()
+            nns = 30
+            knn_index = NNDescent(
+                hparams.lowest_level_centroids,
+                n_neighbors=nns,
+                metric=self.metric,
+                verbose=verbose)
+            knn_index.prepare()
+            nearest_anchor_idxs = knn_index.query(X, k=nns)[0][:, 0]
         else:
             orig_dist = metrics.pairwise.pairwise_distances(X, hparams.lowest_level_centroids, metric=self.metric)
             nearest_anchor_idxs = np.argmin(orig_dist, axis=1)
