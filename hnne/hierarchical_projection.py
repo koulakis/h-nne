@@ -87,7 +87,7 @@ def move_projected_points_to_anchors(
         nearest_neighbor_idx = np.argmin(distance_matrix, axis=1).flatten()
     else:
         if verbose:
-            print('Using ann to approximate 1-nns...')
+            print('Using ann to approximate 1-nns of the projected points...')
         knn_index = NNDescent(
             anchors, 
             n_neighbors=2, 
@@ -106,8 +106,8 @@ def move_projected_points_to_anchors(
     points_centered = points - points_mean_per_partition[partition]
 
     anchors_max_radius = cool_max_radius(points_centered, partition)
+    anchors_max_radius = np.where(anchors_max_radius == 0., 1., anchors_max_radius)
     points_max_radius = np.expand_dims(anchors_max_radius[partition], axis=1)
-    points_max_radius = np.where(points_max_radius == 0, 1., points_max_radius)
 
     return (
         anchors_per_point + anchor_radii_per_point * points_centered / points_max_radius,
