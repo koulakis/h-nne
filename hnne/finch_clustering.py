@@ -1,3 +1,9 @@
+####################################################################################################################
+# Code adapted with few changes from the FINCH clustering algorithm to generate the levels of the h-NNE hierarchy. #
+# FINCH repository: https://github.com/ssarfraz/FINCH-Clustering                                                   #
+# Original script: https://github.com/ssarfraz/FINCH-Clustering/blob/master/python/finch.py                        #
+####################################################################################################################
+
 import numpy as np
 from sklearn import metrics
 import scipy.sparse as sp
@@ -11,7 +17,7 @@ def clust_rank(
         initial_rank=None,
         metric='cosine',
         verbose=False,
-        ann_threshold=30000):
+        ann_threshold=40000):
     knn_index = None
     s = mat.shape[0]
     if initial_rank is not None:
@@ -93,23 +99,46 @@ def FINCH(
         ensure_early_exit=True,
         verbose=True,
         ann_threshold=40000):
-    """ FINCH clustering algorithm.
+    """FINCH clustering algorithm.
 
-    Args:
-        data: Input matrix with features in rows.
-        initial_rank: Nx1 first integer neighbor indices (optional).
-        distance: One of ['cityblock', 'cosine', 'euclidean', 'l1', 'l2', 'manhattan'] Recommended 'cosine'.
-        ensure_early_exit: [Optional flag] may help in large, high dim datasets,
-            ensure purity of merges and helps early exit
-        verbose: Print verbose output.
-        ann_threshold: data size threshold below which nearest neighbors are approximated with ANNs
-    Returns:
-        c: NxP matrix where P is the partition. Cluster label for every partition.
-        num_clust: Number of clusters.
-        partition_clustering:
+    Parameters
+    ----------
+    data: array, shape (n_samples, n_features)
+        Input matrix with features in rows.
 
+    initial_rank: array, shape (n_samples, 1) (optional)
+        First integer neighbor indices.
+
+    distance: str (default 'cosine')
+        One of ['cityblock', 'cosine', 'euclidean', 'l1', 'l2', 'manhattan'] Recommended 'cosine'.
+
+    ensure_early_exit: bool (default True)
+        May help in large, high dim datasets, ensure purity of merges and helps early exit.
+
+    verbose: bool (default True)
+        Print verbose output.
+
+    ann_threshold: int (default 40000)
+        Data size threshold below which nearest neighbors are approximated with ANNs.
+
+    Returns
+    -------
+    c: array of shape (n_samples, n_partitions)
+        Matrix with labels indicating cluster participation. There is one column per partition.
+
+    num_clust: array of shape (n_partitions)
+        Number of clusters per partition.
+
+    partition_clustering: list of arrays of shapes equal to the values of num_clust
+        List of arrays with labels indicating the centroids cluster participation per level.
+
+    lowest_level_centroids: array of shape (num_clust[0], n_features)
+        The feature coordinates of the lowest level centroids.
+
+    References
+    ----------
     The code implements the FINCH algorithm described in our CVPR 2019 paper
-        Sarfraz et al. "Efficient Parameter-free Clustering Using First Neighbor Relations", CVPR2019
+    [1] Sarfraz et al. "Efficient Parameter-free Clustering Using First Neighbor Relations", CVPR2019
          https://arxiv.org/abs/1902.11266
     For academic purpose only. The code or its re-implementation should not be used for commercial use.
     Please contact the author below for licensing information.
@@ -136,7 +165,7 @@ def FINCH(
     lowest_level_centroids = mat
     
     if verbose:
-        print('Partition 0: {} clusters'.format(num_clust))
+        print('Level 0: {} clusters'.format(num_clust))
 
     if ensure_early_exit:
         if orig_dist.shape[-1] > 2:
@@ -147,7 +176,6 @@ def FINCH(
     k = 1
     num_clust = [num_clust]
     partition_clustering = []
-    first_knn_index = None
     while exit_clust > 1:    
         adj, orig_dist, first_neighbors, knn_index = clust_rank(
             mat,
@@ -156,8 +184,7 @@ def FINCH(
             verbose=verbose,
             ann_threshold=ann_threshold
         )
-        if first_knn_index is None:
-            first_knn_index = knn_index
+
         u, num_clust_curr = get_clust(adj, orig_dist, min_sim)
 
         partition_clustering.append(u)
@@ -174,7 +201,7 @@ def FINCH(
             break
 
         if verbose:
-            print('Partition {}: {} clusters'.format(k, num_clust[k]))
+            print('Level {}: {} clusters'.format(k, num_clust[k]))
         k += 1
 
-    return c, num_clust, partition_clustering, lowest_level_centroids, first_knn_index
+    return c, num_clust, partition_clustering, lowest_level_centroids

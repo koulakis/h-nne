@@ -74,12 +74,11 @@ class HNNE(BaseEstimator):
 
     References
     ----------
-
-    [1] Hierarchical Nearest Neighbor Graph Embedding for Efficient Dimensionality Reduction.
+    [1] M. Saquib Sarfraz∗, Marios Koulakis∗, Constantin Seibold, Rainer Stiefelhagen.
+        Hierarchical Nearest Neighbor Graph Embedding for Efficient Dimensionality Reduction.
     [2] Sarfraz, Saquib and Sharma, Vivek and Stiefelhagen, Rainer. Efficient Parameter-Free Clustering
         Using First Neighbor Relations. Proceedings of the IEEE/CVF Conference on Computer Vision and
         Pattern Recognition (CVPR). June 2019.
-
     """
     def __init__(
             self,
@@ -106,7 +105,7 @@ class HNNE(BaseEstimator):
 
     def fit_only_hierarchy(self, X: np.ndarray, verbose: bool = True):
         if verbose:
-            print('Partitioning data with FINCH...')
+            print('Building h-NNE hierarchy using FINCH...')
         [
             partitions,
             partition_sizes,
