@@ -19,7 +19,6 @@ class HierarchyParameters:
     partition_sizes: np.ndarray
     partition_labels: np.ndarray
     lowest_level_centroids: np.ndarray
-    knn_index: Optional[Any]
 
 
 @dataclass
@@ -110,8 +109,7 @@ class HNNE(BaseEstimator):
             partitions,
             partition_sizes,
             partition_labels,
-            lowest_level_centroids,
-            knn_index
+            lowest_level_centroids
         ] = FINCH(
             data=X,
             ensure_early_exit=False,
@@ -137,8 +135,7 @@ class HNNE(BaseEstimator):
             partitions,
             partition_sizes,
             partition_labels,
-            lowest_level_centroids,
-            knn_index
+            lowest_level_centroids
         )
 
         return partitions, partition_sizes, partition_labels
