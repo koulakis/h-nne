@@ -102,7 +102,7 @@ class HNNE(BaseEstimator):
         self.hierarchy_parameters: Optional[HierarchyParameters] = None
         self.projection_parameters: Optional[ProjectionParameters] = None
 
-    def fit_only_hierarchy(self, X: np.ndarray, verbose: bool = True):
+    def fit_only_hierarchy(self, X: np.ndarray, verbose: bool = False):
         if verbose:
             print('Building h-NNE hierarchy using FINCH...')
         [
@@ -145,7 +145,7 @@ class HNNE(BaseEstimator):
             self,
             X: np.ndarray,
             y: np.ndarray = None,
-            verbose: bool = True,
+            verbose: bool = False,
             skip_hierarchy_building_if_done: bool = True
     ):
         """
@@ -214,7 +214,7 @@ class HNNE(BaseEstimator):
         
         return projection
         
-    def transform(self, X: np.ndarray, ann_point_combination_threshold: int = 400e6, verbose: bool = True):
+    def transform(self, X: np.ndarray, ann_point_combination_threshold: int = 400e6, verbose: bool = False):
         if self.hierarchy_parameters is None or self.projection_parameters is None:
             raise ValueError('Unable to project as h-nne has not been fitted on a dataset.')
         hparams = self.hierarchy_parameters
