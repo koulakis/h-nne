@@ -87,8 +87,8 @@ class HNNE(BaseEstimator):
             ann_threshold: int = 40000,
             preliminary_embedding: str = 'pca'
     ):
-        self.radius = radius
         self.dim = dim
+        self.radius = radius
         self.ann_threshold = ann_threshold
         try:
             preliminary_embedding = PreliminaryEmbedding[preliminary_embedding]
@@ -145,6 +145,7 @@ class HNNE(BaseEstimator):
             self,
             X: np.ndarray,
             y: np.ndarray = None,
+            dim: int = 2,
             verbose: bool = False,
             skip_hierarchy_building_if_done: bool = True
     ):
@@ -159,6 +160,9 @@ class HNNE(BaseEstimator):
         y: array, shape (n_samples, )
             Ignored.
 
+        dim: int (default 2)
+            Argument used to overwrite the original dimension of the target space of the projection.
+
         verbose: bool
             If true, plot info and progress messages.
 
@@ -167,6 +171,8 @@ class HNNE(BaseEstimator):
             a new dataset with the same HNNE object, then you have to set this to false.
         """
         if self.hierarchy_parameters is not None and skip_hierarchy_building_if_done:
+            if verbose:
+                print('Skipping the hierarchy construction as it is already available.')
             hparams = self.hierarchy_parameters
             partitions, partition_sizes, partition_labels = \
                 hparams.partitions, hparams.partition_sizes, hparams.partition_labels
@@ -178,8 +184,13 @@ class HNNE(BaseEstimator):
                 partition_labels
             ] = self.fit_only_hierarchy(X, verbose=verbose)
 
+        if dim is not None and dim != self.dim:
+            if verbose:
+                print(f'Overwriting the dimensions {self.dim} to the new value {dim}.')
+            self.dim = dim
+
         if verbose:
-            print(f'Projecting to {self.dim} dimensions...')
+            print(f'Projecting to {dim} dimensions...')
         [
             projection,
             projected_centroid_radii,
