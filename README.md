@@ -21,10 +21,10 @@ projection = projector.fit_transform(data)
 ## Demos
 The following demo notebooks are available:
 
-[Basic Usage](notebooks/demo1_basic_usage.ipynb)
-[Multiple Projections](notebooks/demo2_multiple_projections.ipynb)
-[Clustering for Free](notebooks/demo3_clustering_for_free.ipynb)
-[Monitor Class Disentanglement](notebooks/demo4_monitor_class_disentanglement.ipynb)
+1. [Basic Usage](notebooks/demo1_basic_usage.ipynb)
+1. [Multiple Projections](notebooks/demo2_multiple_projections.ipynb)
+1. [Clustering for Free](notebooks/demo3_clustering_for_free.ipynb)
+1. [Monitor Class Disentanglement](notebooks/demo4_monitor_class_disentanglement.ipynb)
 
 ## References
 If you make use of this project in your work, please cite the following references:
