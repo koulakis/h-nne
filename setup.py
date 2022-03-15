@@ -10,6 +10,7 @@ setuptools.setup(
     packages=['hnne'],
     classifiers=[
         "Development Status :: 3 - Alpha",
+        "License :: Free for non-commercial use",
         "Operating System :: Unix",
         "Operating System :: MacOS",
         "Programming Language :: Python :: 3.7",
