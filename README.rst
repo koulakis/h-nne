@@ -14,15 +14,16 @@ The project is available in PyPI. To install run:
 How to use h-NNE
 ----------------
 The main class implements the main methods of the sklearn interface.
-```python
-import numpy as np
-from hnne import HNNE
 
-data = np.random.rand()
+.. code-block:: python
 
-projector = HNNE()
-projection = projector.fit_transform(data)
-```
+  import numpy as np
+  from hnne import HNNE
+
+  data = np.random.rand()
+
+  projector = HNNE()
+  projection = projector.fit_transform(data)
 
 -----
 Demos
