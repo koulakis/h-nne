@@ -9,10 +9,12 @@ setuptools.setup(
     description="A fast hierarchical dimensionality reduction algorithm.",
     packages=['hnne'],
     classifiers=[
+        "Development Status :: 3 - Alpha",
+        "Operating System :: Unix",
+        "Operating System :: MacOS",
         "Programming Language :: Python :: 3.7",
         "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
-        "Operating System :: OS Independent - Tested on Ubuntu 18.04",
     ],
     keywords="dimension dimensionality reduction t-sne umap hierarchical clustering finch",
     install_requires=[
