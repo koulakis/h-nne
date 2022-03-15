@@ -2,12 +2,12 @@ import setuptools
 from pathlib import Path
 
 this_directory = Path(__file__).parent
-long_description = (this_directory / "README.md").read_text()
+long_description = (this_directory / "README.rst").read_text()
 
 
 setuptools.setup(
     name="hnne",
-    version="0.1.2",
+    version="0.1.3",
     author="Marios Koulakis, Saquib Sarfraz",
     author_email="marios.koulakis@gmail.com",
     description="A fast hierarchical dimensionality reduction algorithm.",
