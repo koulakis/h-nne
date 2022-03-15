@@ -1,12 +1,17 @@
 import setuptools
+from pathlib import Path
+
+this_directory = Path(__file__).parent
+long_description = (this_directory / "README.md").read_text()
 
 
 setuptools.setup(
     name="hnne",
-    version="0.1.0",
+    version="0.1.1",
     author="Marios Koulakis, Saquib Sarfraz",
     author_email="marios.koulakis@gmail.com",
     description="A fast hierarchical dimensionality reduction algorithm.",
+    long_description=long_description,
     packages=['hnne'],
     classifiers=[
         "Development Status :: 3 - Alpha",
