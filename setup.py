@@ -3,7 +3,7 @@ import setuptools
 
 setuptools.setup(
     name="hnne",
-    version="0.0.1",
+    version="0.1.0",
     author="Marios Koulakis, Saquib Sarfraz",
     author_email="marios.koulakis@gmail.com",
     description="A fast hierarchical dimensionality reduction algorithm.",
