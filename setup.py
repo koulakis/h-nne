@@ -12,6 +12,7 @@ setuptools.setup(
     author_email="marios.koulakis@gmail.com",
     description="A fast hierarchical dimensionality reduction algorithm.",
     long_description=long_description,
+    long_description_content_type="text/x-rst",
     packages=['hnne'],
     classifiers=[
         "Development Status :: 3 - Alpha",
