@@ -77,7 +77,7 @@ def cool_std(data, means, partition, epsilon=1e-12):
     Returns
     -------
         group_std: A (n, f) matrix with the standard deviation vectors over the k partition values. Rows belonging to
-        the same partition class contain the same values.
+            the same partition class contain the same values.
     """
     return np.sqrt(cool_mean((data - means) ** 2, partition)) + epsilon
 
