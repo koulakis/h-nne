@@ -15,6 +15,10 @@ corresponding paper:
 
 .. _FINCH: https://github.com/ssarfraz/FINCH-Clustering
 
+Documentation: `https://hnne.readthedocs.io/en/latest/index.html`__
+
+.. __: https://hnne.readthedocs.io/en/latest/index.html
+
 ------------
 Installation
 ------------
