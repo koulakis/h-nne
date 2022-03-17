@@ -1,6 +1,6 @@
-=====
+==============================================
 h-NNE: Hierarchical Nearest Neighbor Embedding
-=====
+==============================================
 A fast hierarchical dimensionality reduction algorithm.
 
 h-NNE is a general purpose dimensionality reduction algorithm such as t-SNE and UMAP. It stands out for its speed,
