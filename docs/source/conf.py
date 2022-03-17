@@ -23,7 +23,9 @@ copyright = '2022, Marios Koulakis, Saquib Sarfraz'
 author = 'Marios Koulakis, Saquib Sarfraz'
 
 # The full version, including alpha/beta/rc tags
-release = '0.1.3'
+release = '0.1.4'
+
+needs_sphinx = '1.5.3'
 
 
 # -- General configuration ---------------------------------------------------
