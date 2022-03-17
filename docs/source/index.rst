@@ -14,9 +14,9 @@ inspired by the FINCH_ clustering algorithm. For more information on the structu
 corresponding paper:
 
   M. Saquib Sarfraz\*, Marios Koulakis\*, Constantin Seibold, Rainer Stiefelhagen.
-  Hierarchical Nearest Neighbor Graph Embedding for Efficient Dimensionality Reduction.
+  Hierarchical Nearest Neighbor Graph Embedding for Efficient Dimensionality Reduction. CVPR 2022.
 
-\*Paper link will be added soon
+*Paper link will be added soon*
 
 .. _FINCH: https://github.com/ssarfraz/FINCH-Clustering
 
@@ -39,7 +39,7 @@ Citation
 --------
 If you make use of this project in your work, it would be appreciated if you cite the hnne paper:
 
-.. code:: bibtex
+.. code-block:: bibtex
 
     @article{hnne,
       title={Hierarchical Nearest Neighbor Graph Embedding for Efficient Dimensionality Reduction},
@@ -50,7 +50,7 @@ If you make use of this project in your work, it would be appreciated if you cit
 
 If you make use of the clustering properties of the algorithm please also cite:
 
-.. code:: bibtex
+.. code-block:: bibtex
 
     @inproceedings{finch,
       author    = {M. Saquib Sarfraz and Vivek Sharma and Rainer Stiefelhagen},
@@ -59,14 +59,3 @@ If you make use of the clustering properties of the algorithm please also cite:
       pages = {8934--8943}
       year  = {2019}
    }
-
-----------
-References
-----------
-
-[1] M. Saquib Sarfraz\*, Marios Koulakis\*, Constantin Seibold, Rainer Stiefelhagen.
-  Hierarchical Nearest Neighbor Graph Embedding for Efficient Dimensionality Reduction.
-
-[2] Sarfraz, Saquib and Sharma, Vivek and Stiefelhagen, Rainer. Efficient Parameter-Free Clustering
-    Using First Neighbor Relations. Proceedings of the IEEE/CVF Conference on Computer Vision and
-    Pattern Recognition (CVPR). June 2019.
