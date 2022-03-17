@@ -76,12 +76,12 @@ The following demo notebooks are available:
 
 3. `Clustering for Free`_
 
-4. `Monitor Class Disentanglement`_
+4. `Monitor Quality of Network Embeddings`_
 
 .. _Basic Usage: notebooks/demo1_basic_usage.ipynb
 .. _Multiple Projections: notebooks/demo2_multiple_projections.ipynb
 .. _Clustering for Free: notebooks/demo3_clustering_for_free.ipynb
-.. _Monitor Class Disentanglement: notebooks/demo4_monitor_class_disentanglement.ipynb
+.. _Monitor Quality of Network Embeddings: notebooks/demo4_monitor_network_embeddings.ipynb
 
 --------
 Citation
