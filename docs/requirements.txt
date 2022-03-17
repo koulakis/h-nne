@@ -5,3 +5,11 @@ sphinxcontrib-htmlhelp
 sphinxcontrib-jsmath
 sphinxcontrib-qthelp
 sphinxcontrib-serializinghtml
+scipy
+numpy==1.20
+sklearn
+tqdm
+pynndescent
+typer
+pandas
+cython
