@@ -9,12 +9,11 @@ inspired by the FINCH_ clustering algorithm. For more information on the structu
 corresponding paper:
 
   M. Saquib Sarfraz\*, Marios Koulakis\*, Constantin Seibold, Rainer Stiefelhagen.
-  `Hierarchical Nearest Neighbor Graph Embedding for Efficient Dimensionality Reduction.`__
+  Hierarchical Nearest Neighbor Graph Embedding for Efficient Dimensionality Reduction. CVPR 2022.
 
-\*Paper link will be added soon
+*Paper link will be added soon*
 
 .. _FINCH: https://github.com/ssarfraz/FINCH-Clustering
-.. __: https://github.com/koulakis/h-nne
 
 ------------
 Installation
@@ -37,22 +36,10 @@ Simple projection example
   import numpy as np
   from hnne import HNNE
 
-  data = np.random.random(size=(1000, 20))
+  data = np.random.random(size=(1000, 256))
 
-  hnne = HNNE()
-  projection = projector.fit_transform(data)
-
-++++++++++++++++++++++++++++
-Using the hierarchy clusters
-++++++++++++++++++++++++++++
-
-.. code:: python
-
-  hnne = HNNE()
+  hnne = HNNE(dim=2)
   projection = hnne.fit_transform(data)
-
-  level = 0
-  clusters = hnne.hierarchy_parameters.partitions[:, level]
 
 ++++++++++++++++++++++++++++
 Projecting on new points
@@ -72,7 +59,7 @@ The following demo notebooks are available:
 
 1. `Basic Usage`_
 
-2.  `Multiple Projections`_
+2. `Multiple Projections`_
 
 3. `Clustering for Free`_
 
@@ -90,31 +77,22 @@ If you make use of this project in your work, it would be appreciated if you cit
 
 .. code:: bibtex
 
-    @article{hnne-projection,
-        title={Hierarchical Nearest Neighbor Graph Embedding for Efficient Dimensionality Reduction},
-        author={M. Saquib Sarfraz, Marios Koulakis, Constantin Seibold, Rainer Stiefelhagen}
+    @article{hnne,
+      title={Hierarchical Nearest Neighbor Graph Embedding for Efficient Dimensionality Reduction},
+      author={M. Saquib Sarfraz, Marios Koulakis, Constantin Seibold, Rainer Stiefelhagen}
+      booktitle = {Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition (CVPR)},
+      year = {2022}
     }
 
 If you make use of the clustering properties of the algorithm please also cite:
 
 .. code:: bibtex
 
-    @inproceedings{finch-clustering,
-        author = {Sarfraz, M. and Sharma, Vivek and Stiefelhagen, Rainer},
-        year = {2019},
-        month = {03},
-        pages = {},
-        title = {Efficient Parameter-Free Clustering Using First Neighbor Relations},
-        doi = {10.1109/CVPR.2019.00914}
-    }
+    @inproceedings{finch,
+      author    = {M. Saquib Sarfraz and Vivek Sharma and Rainer Stiefelhagen},
+      title     = {Efficient Parameter-free Clustering Using First Neighbor Relations},
+      booktitle = {Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition (CVPR)},
+      pages = {8934--8943}
+      year  = {2019}
+   }
 
-----------
-References
-----------
-
-[1] M. Saquib Sarfraz\*, Marios Koulakis\*, Constantin Seibold, Rainer Stiefelhagen.
-  Hierarchical Nearest Neighbor Graph Embedding for Efficient Dimensionality Reduction.
-  
-[2] Sarfraz, Saquib and Sharma, Vivek and Stiefelhagen, Rainer. Efficient Parameter-Free Clustering
-    Using First Neighbor Relations. Proceedings of the IEEE/CVF Conference on Computer Vision and
-    Pattern Recognition (CVPR). June 2019.
