@@ -1,2 +1,0 @@
-.. _basic_usage
-

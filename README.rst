@@ -79,7 +79,7 @@ If you make use of this project in your work, it would be appreciated if you cit
 
     @article{hnne,
       title={Hierarchical Nearest Neighbor Graph Embedding for Efficient Dimensionality Reduction},
-      author={M. Saquib Sarfraz, Marios Koulakis, Constantin Seibold, Rainer Stiefelhagen}
+      author={M. Saquib Sarfraz, Marios Koulakis, Constantin Seibold, Rainer Stiefelhagen},
       booktitle = {Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition (CVPR)},
       year = {2022}
     }
@@ -92,7 +92,7 @@ If you make use of the clustering properties of the algorithm please also cite:
       author    = {M. Saquib Sarfraz and Vivek Sharma and Rainer Stiefelhagen},
       title     = {Efficient Parameter-free Clustering Using First Neighbor Relations},
       booktitle = {Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition (CVPR)},
-      pages = {8934--8943}
+      pages = {8934--8943},
       year  = {2019}
    }
 

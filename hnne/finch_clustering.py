@@ -123,28 +123,28 @@ def FINCH(
 
     Returns
     -------
-    c: array of shape (n_samples, n_partitions)
-        Matrix with labels indicating cluster participation. There is one column per partition.
+        c: array of shape (n_samples, n_partitions)
+            Matrix with labels indicating cluster participation. There is one column per partition.
 
-    num_clust: array of shape (n_partitions)
-        Number of clusters per partition.
+        num_clust: array of shape (n_partitions)
+            Number of clusters per partition.
 
-    partition_clustering: list of arrays of shapes equal to the values of num_clust
-        List of arrays with labels indicating the centroids cluster participation per level.
+        partition_clustering: list of arrays of shapes equal to the values of num_clust
+            List of arrays with labels indicating the centroids cluster participation per level.
 
-    lowest_level_centroids: array of shape (num_clust[0], n_features)
-        The feature coordinates of the lowest level centroids.
+        lowest_level_centroids: array of shape (num_clust[0], n_features)
+            The feature coordinates of the lowest level centroids.
 
     References
     ----------
-    The code implements the FINCH algorithm described in our CVPR 2019 paper
-    [1] Sarfraz et al. "Efficient Parameter-free Clustering Using First Neighbor Relations", CVPR2019
-         https://arxiv.org/abs/1902.11266
-    For academic purpose only. The code or its re-implementation should not be used for commercial use.
-    Please contact the author below for licensing information.
-    Copyright
-    M. Saquib Sarfraz (saquib.sarfraz@kit.edu)
-    Karlsruhe Institute of Technology (KIT)
+        The code implements the FINCH algorithm described in our CVPR 2019 paper
+        [1] Sarfraz et al. "Efficient Parameter-free Clustering Using First Neighbor Relations", CVPR2019
+             https://arxiv.org/abs/1902.11266
+        For academic purpose only. The code or its re-implementation should not be used for commercial use.
+        Please contact the author below for licensing information.
+        Copyright
+        M. Saquib Sarfraz (saquib.sarfraz@kit.edu)
+        Karlsruhe Institute of Technology (KIT)
     """
     data = data.astype(np.float32)
 

@@ -44,9 +44,9 @@ class HNNE(BaseEstimator):
         The dimension of the target space of the projection.
 
     metric: str (default 'cosine')
-        The metric used to compute the distances when forming the h-nne hierarchy levels. Its value should be
-        supported by both sklearn and pynndescent. Some possible values: 'cityblock', 'cosine', 'euclidean', 'l1', 'l2',
-      'manhattan'.
+        The metric used to compute the distances when forming the h-nne hierarchy levels. Its value should be supported
+        by both sklearn and pynndescent. Some possible values: 'cityblock', 'cosine', 'euclidean',
+        'l1', 'l2', 'manhattan'.
 
     radius: float (default 0.45)
         The radius used to place points around centroids as a portion of the distance between nearest neighbor anchors.
@@ -70,14 +70,6 @@ class HNNE(BaseEstimator):
     hierarchy_parameters: Optional[HierarchyParameters]
         An object holding the parameters which encode the h-nne hierarchy. They are saved during fitting and can be
         reused both during projecting new points or projecting again with different parameters, e.g. dim.
-
-    References
-    ----------
-    [1] M. Saquib Sarfraz∗, Marios Koulakis∗, Constantin Seibold, Rainer Stiefelhagen.
-        Hierarchical Nearest Neighbor Graph Embedding for Efficient Dimensionality Reduction.
-    [2] Sarfraz, Saquib and Sharma, Vivek and Stiefelhagen, Rainer. Efficient Parameter-Free Clustering
-        Using First Neighbor Relations. Proceedings of the IEEE/CVF Conference on Computer Vision and
-        Pattern Recognition (CVPR). June 2019.
     """
     def __init__(
             self,
