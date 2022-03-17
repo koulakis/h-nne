@@ -103,23 +103,23 @@ def FINCH(
 
     Parameters
     ----------
-    data: array, shape (n_samples, n_features)
-        Input matrix with features in rows.
+        data: array, shape (n_samples, n_features)
+            Input matrix with features in rows.
 
-    initial_rank: array, shape (n_samples, 1) (optional)
-        First integer neighbor indices.
+        initial_rank: array, shape (n_samples, 1) (optional)
+            First integer neighbor indices.
 
-    distance: str (default 'cosine')
-        One of ['cityblock', 'cosine', 'euclidean', 'l1', 'l2', 'manhattan'] Recommended 'cosine'.
+        distance: str (default 'cosine')
+            One of ['cityblock', 'cosine', 'euclidean', 'l1', 'l2', 'manhattan'] Recommended 'cosine'.
 
-    ensure_early_exit: bool (default True)
-        May help in large, high dim datasets, ensure purity of merges and helps early exit.
+        ensure_early_exit: bool (default True)
+            May help in large, high dim datasets, ensure purity of merges and helps early exit.
 
-    verbose: bool (default True)
-        Print verbose output.
+        verbose: bool (default True)
+            Print verbose output.
 
-    ann_threshold: int (default 40000)
-        Data size threshold below which nearest neighbors are approximated with ANNs.
+        ann_threshold: int (default 40000)
+            Data size threshold below which nearest neighbors are approximated with ANNs.
 
     Returns
     -------
