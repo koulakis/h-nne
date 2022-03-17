@@ -35,10 +35,14 @@ needs_sphinx = '1.5.3'
 # ones.
 extensions = [
     'sphinx_rtd_theme',
-    'sphinx.ext.autodoc',
+    # 'sphinx.ext.autodoc',
     'sphinx.ext.coverage',
-    'sphinx.ext.napoleon'
+    'sphinx.ext.napoleon',
+    'autoapi.extension'
 ]
+
+autoapi_type = 'python'
+autoapi_dirs = ['../../hnne']
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
