@@ -36,4 +36,8 @@ setuptools.setup(
     ],
     test_suite="pytest",
     tests_require=["pytest"],
+    project_urls={
+        "Documentation": "https://hnne.readthedocs.io/en/latest/",
+        "Repository": "https://github.com/koulakis/h-nne"
+    }
 )
