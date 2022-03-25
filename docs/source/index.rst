@@ -29,6 +29,7 @@ Github repository: `https://github.com/koulakis/h-nne`__
    :caption: User Guide
 
    guide/install
+   guide/getting_started
 
 .. toctree::
    :maxdepth: 1
