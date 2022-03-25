@@ -70,6 +70,19 @@ class HNNE(BaseEstimator):
     hierarchy_parameters: Optional[HierarchyParameters]
         An object holding the parameters which encode the h-nne hierarchy. They are saved during fitting and can be
         reused both during projecting new points or projecting again with different parameters, e.g. dim.
+
+    References
+    ----------
+        The code implements the h-NNE algorithm described in our CVPR 2022 paper:
+        [1] M. Saquib Sarfraz*, Marios Koulakis*, Constantin Seibold, Rainer Stiefelhagen.
+        Hierarchical Nearest Neighbor Graph Embedding for Efficient Dimensionality Reduction. CVPR 2022.
+        https://arxiv.org/abs/2203.12997
+
+        It is for academic purposes only. The code or its re-implementation should not be used for commercial use.
+        Please contact the authors below for licensing information.
+        Marios Koulakis (marios.koulakis@gmail.com)
+        M. Saquib Sarfraz (saquibsarfraz@gmail.com)
+        Karlsruhe Institute of Technology (KIT)
     """
     def __init__(
             self,

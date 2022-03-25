@@ -7,9 +7,9 @@ long_description = (this_directory / "README.rst").read_text()
 
 setuptools.setup(
     name="hnne",
-    version="0.1.6",
+    version="0.1.7",
     author="Marios Koulakis, Saquib Sarfraz",
-    author_email="marios.koulakis@gmail.com",
+    author_email="marios.koulakis@gmail.com, saquibsarfraz@gmail.com",
     description="A fast hierarchical dimensionality reduction algorithm.",
     long_description=long_description,
     long_description_content_type="text/x-rst",
@@ -38,6 +38,7 @@ setuptools.setup(
     tests_require=["pytest"],
     project_urls={
         "Documentation": "https://hnne.readthedocs.io/en/latest/",
-        "Repository": "https://github.com/koulakis/h-nne"
+        "Repository": "https://github.com/koulakis/h-nne",
+        "Publication": "https://arxiv.org/abs/2203.12997"
     }
 )
