@@ -51,6 +51,9 @@ Finally, you can visualize the result with matplotlib:
     plt.scatter(*projection.T, s=1, c=targets, cmap='Spectral')
     plt.show()
 
+.. image:: projection_cifar10.png
+    :width: 50%
+
 An extended version of this example can be found at `this notebook`__.
 
 .. __: https://github.com/koulakis/h-nne/blob/main/notebooks/demo1_basic_usage.ipynb

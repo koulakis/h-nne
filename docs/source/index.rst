@@ -30,6 +30,8 @@ Github repository: `https://github.com/koulakis/h-nne`__
 
    guide/install
    guide/getting_started
+   guide/projection_clusters
+   guide/more_examples
 
 .. toctree::
    :maxdepth: 1
