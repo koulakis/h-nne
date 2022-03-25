@@ -5,19 +5,19 @@ A fast hierarchical dimensionality reduction algorithm.
 
 h-NNE is a general purpose dimensionality reduction algorithm such as t-SNE and UMAP. It stands out for its speed,
 simplicity and the fact that it provides a hierarchy of clusterings as part of its projection process. The algorithm is
-inspired by the FINCH_ clustering algorithm. For more information on the structure of the algorithm, please look at the
-corresponding paper:
+inspired by the FINCH_ clustering algorithm. For more information on the structure of the algorithm, please look at `our
+corresponding paper in ArXiv`__:
 
   M. Saquib Sarfraz\*, Marios Koulakis\*, Constantin Seibold, Rainer Stiefelhagen.
   Hierarchical Nearest Neighbor Graph Embedding for Efficient Dimensionality Reduction. CVPR 2022.
 
-*Paper link will be added soon*
+.. __: https://arxiv.org/abs/2203.12997
 
 .. _FINCH: https://github.com/ssarfraz/FINCH-Clustering
 
-More details are available in the project documentation_.
+More details are available in the `project documentation`__.
 
-.. _documentation: https://hnne.readthedocs.io/en/latest/index.html
+.. __: https://hnne.readthedocs.io/en/latest/index.html
 
 ------------
 Installation
