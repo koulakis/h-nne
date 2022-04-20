@@ -26,7 +26,7 @@ setuptools.setup(
     keywords="dimension dimensionality reduction t-sne umap hierarchical clustering finch",
     install_requires=[
         "scipy",
-        "numpy==1.20",
+        "numpy>=1.20",
         "sklearn",
         "tqdm",
         "pynndescent",
