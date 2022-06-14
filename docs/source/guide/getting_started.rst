@@ -31,7 +31,7 @@ a local datapath. This is set to `'.'`, but you can change it to point to your p
 .. code-block:: python
 
     data_path = '.'
-    cifar10 = CIFAR10(root=data_path, download=True, train=True)
+    cifar10_train = CIFAR10(root=data_path, download=True, train=True)
     data = cifar10_train.data.reshape((len(cifar10_train.data), -1))
     targets = cifar10_train.targets
 
