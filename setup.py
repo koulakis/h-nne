@@ -7,7 +7,7 @@ long_description = (this_directory / "README.rst").read_text()
 
 setuptools.setup(
     name="hnne",
-    version="0.1.7",
+    version="0.1.8",
     author="Marios Koulakis, Saquib Sarfraz",
     author_email="marios.koulakis@gmail.com, saquibsarfraz@gmail.com",
     description="A fast hierarchical dimensionality reduction algorithm.",
