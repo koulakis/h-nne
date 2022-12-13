@@ -10,6 +10,7 @@ import scipy.sparse as sp
 from pynndescent import NNDescent
 
 from hnne.cool_functions import cool_mean
+from hnne.neighbor_points_aggregation import aggregate_nns
 
 
 def clust_rank(
@@ -17,7 +18,8 @@ def clust_rank(
         initial_rank=None,
         metric='cosine',
         verbose=False,
-        ann_threshold=40000):
+        ann_threshold=40000
+):
     knn_index = None
     s = mat.shape[0]
     if initial_rank is not None:
@@ -98,7 +100,9 @@ def FINCH(
         distance='cosine',
         ensure_early_exit=True,
         verbose=True,
-        ann_threshold=40000):
+        ann_threshold=40000,
+        nn_aggregation_scheme=()
+):
     """FINCH clustering algorithm.
 
     Parameters
@@ -120,6 +124,10 @@ def FINCH(
 
         ann_threshold: int (default 40000)
             Data size threshold below which nearest neighbors are approximated with ANNs.
+
+        nn_aggregation_scheme: A list of tuples of type (n_neighbors, iterations. Those define the number of neighbors
+        and the iterations of nearest neighbor aggregation per layer of FINCH. The aggregation starts from the lower
+        level of FINCH and goes up. If the algorithm terminates, the final steps are ignored.
 
     Returns
     -------
@@ -147,6 +155,11 @@ def FINCH(
         Karlsruhe Institute of Technology (KIT)
     """
     data = data.astype(np.float32)
+    nn_agg_level = 0
+    if len(nn_aggregation_scheme) > nn_agg_level:
+        n_neighbors, iterations = nn_aggregation_scheme[nn_agg_level]
+        data = aggregate_nns(data, n_neighbors=n_neighbors, iterations=iterations)
+        nn_agg_level += 1
 
     min_sim = None
     
@@ -176,7 +189,12 @@ def FINCH(
     k = 1
     num_clust = [num_clust]
     partition_clustering = []
-    while exit_clust > 1:    
+    while exit_clust > 1:
+        if len(nn_aggregation_scheme) > nn_agg_level:
+            n_neighbors, iterations = nn_aggregation_scheme[nn_agg_level]
+            mat = aggregate_nns(mat, n_neighbors=n_neighbors, iterations=iterations)
+            nn_agg_level += 1
+
         adj, orig_dist, first_neighbors, knn_index = clust_rank(
             mat,
             initial_rank,

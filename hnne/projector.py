@@ -1,6 +1,6 @@
 import pickle
 from dataclasses import dataclass
-from typing import Optional, List, Any
+from typing import Optional, List, Any, Dict, Tuple
 
 import numpy as np
 from sklearn import metrics
@@ -61,6 +61,10 @@ class HNNE(BaseEstimator):
         The preliminary embedding used to initiate h-nne. In terms of performance pca > pca_centroids > random_linear
         and in terms of speed performance pca < pca_centroids < random_linear.
 
+    nn_aggregation_scheme: A list of tuples of type (n_neighbors, iterations. Those define the number of neighbors and
+        the iterations of nearest neighbor aggregation per layer of FINCH. The aggregation starts from the lower level
+        of FINCH and goes up. If the algorithm terminates, the final steps are ignored.
+
     Attributes
     ----------
     min_size_top_level: int (default 3)
@@ -90,11 +94,13 @@ class HNNE(BaseEstimator):
             metric: str = 'cosine',
             radius: float = 0.4,
             ann_threshold: int = 40000,
-            preliminary_embedding: str = 'pca'
+            preliminary_embedding: str = 'pca',
+            nn_aggregation_scheme: Tuple[Tuple[int, int]] = ()
     ):
         self.dim = dim
         self.radius = radius
         self.ann_threshold = ann_threshold
+        self.nn_aggregation_scheme = nn_aggregation_scheme
         try:
             preliminary_embedding = PreliminaryEmbedding[preliminary_embedding]
         except KeyError:
@@ -120,7 +126,8 @@ class HNNE(BaseEstimator):
             ensure_early_exit=False,
             verbose=verbose,
             distance=self.metric,
-            ann_threshold=self.ann_threshold
+            ann_threshold=self.ann_threshold,
+            nn_aggregation_scheme=self.nn_aggregation_scheme
         )
 
         large_enough_partitions = np.argwhere(np.array(partition_sizes) >= self.min_size_top_level)
