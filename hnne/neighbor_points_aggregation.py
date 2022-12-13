@@ -1,5 +1,5 @@
 import numpy as np
-import scipy as sp
+import scipy.sparse as sp
 from pynndescent import NNDescent
 import torch
 
@@ -76,10 +76,10 @@ def prepare_adj_matrix(knn_idx, knn_dist):
 
 def aggregate_nns(data, n_neighbors, iterations, metric='cosine'):
     knn_idx, knn_dist = compute_knns(data, n_neighbors, metric=metric, verbose=False)
-    adj = prepare_adj_matrix(knn_idx, knn_dist)
+    adj = prepare_adj_matrix(knn_idx, knn_dist).to(torch.float32)
 
     agg = data
     for _ in range(iterations):
-        agg = torch.spmm(adj, torch.from_numpy(agg)).numpy()
+        agg = torch.spmm(adj, torch.from_numpy(agg).to(torch.float32)).numpy()
 
     return agg

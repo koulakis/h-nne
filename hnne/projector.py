@@ -61,7 +61,7 @@ class HNNE(BaseEstimator):
         The preliminary embedding used to initiate h-nne. In terms of performance pca > pca_centroids > random_linear
         and in terms of speed performance pca < pca_centroids < random_linear.
 
-    nn_aggregation_scheme: A list of tuples of type (n_neighbors, iterations. Those define the number of neighbors and
+    nn_aggregation_scheme: A list of lists of type [n_neighbors, iterations]. Those define the number of neighbors and
         the iterations of nearest neighbor aggregation per layer of FINCH. The aggregation starts from the lower level
         of FINCH and goes up. If the algorithm terminates, the final steps are ignored.
 

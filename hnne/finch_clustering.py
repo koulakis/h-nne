@@ -125,7 +125,7 @@ def FINCH(
         ann_threshold: int (default 40000)
             Data size threshold below which nearest neighbors are approximated with ANNs.
 
-        nn_aggregation_scheme: A list of tuples of type (n_neighbors, iterations. Those define the number of neighbors
+        nn_aggregation_scheme: A list of lists of type [n_neighbors, iterations]. Those define the number of neighbors
         and the iterations of nearest neighbor aggregation per layer of FINCH. The aggregation starts from the lower
         level of FINCH and goes up. If the algorithm terminates, the final steps are ignored.
 
