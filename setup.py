@@ -7,7 +7,7 @@ long_description = (this_directory / "README.rst").read_text()
 
 setuptools.setup(
     name="hnne",
-    version="0.1.8",
+    version="0.1.9",
     author="Marios Koulakis, Saquib Sarfraz",
     author_email="marios.koulakis@gmail.com, saquibsarfraz@gmail.com",
     description="A fast hierarchical dimensionality reduction algorithm.",
@@ -27,7 +27,7 @@ setuptools.setup(
     install_requires=[
         "scipy",
         "numpy<1.23,>=1.18",
-        "sklearn",
+        "scikit-learn",
         "tqdm",
         "pynndescent",
         "typer",
