@@ -7,7 +7,7 @@ long_description = (this_directory / "README.rst").read_text()
 
 setuptools.setup(
     name="hnne",
-    version="0.1.9",
+    version="0.1.10",
     author="Marios Koulakis, Saquib Sarfraz",
     author_email="marios.koulakis@gmail.com, saquibsarfraz@gmail.com",
     description="A fast hierarchical dimensionality reduction algorithm.",
@@ -25,11 +25,12 @@ setuptools.setup(
     ],
     keywords="dimension dimensionality reduction t-sne umap hierarchical clustering finch",
     install_requires=[
+        "numba>=0.51.2",
+        "pynndescent",
         "scipy",
-        "numpy<1.23,>=1.18",
+        "numpy>=1.18",
         "scikit-learn",
         "tqdm",
-        "pynndescent",
         "typer",
         "pandas",
         "cython",
