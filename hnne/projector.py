@@ -150,7 +150,6 @@ class HNNE(BaseEstimator):
             self,
             X: np.ndarray,
             y: np.ndarray = None,
-            dim: int = 2,
             verbose: bool = False,
             skip_hierarchy_building_if_done: bool = True
     ):
@@ -189,13 +188,8 @@ class HNNE(BaseEstimator):
                 partition_labels
             ] = self.fit_only_hierarchy(X, verbose=verbose)
 
-        if dim is not None and dim != self.dim:
-            if verbose:
-                print(f'Overwriting the dimensions {self.dim} to the new value {dim}.')
-            self.dim = dim
-
         if verbose:
-            print(f'Projecting to {dim} dimensions...')
+            print(f'Projecting to {self.dim} dimensions...')
         [
             projection,
             projected_centroid_radii,
