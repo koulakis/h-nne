@@ -1,6 +1,6 @@
 import pickle
 from dataclasses import dataclass
-from typing import Optional, List, Any
+from typing import Optional, List, Any, Union
 
 import numpy as np
 from sklearn import metrics
@@ -11,6 +11,11 @@ from pynndescent import NNDescent
 
 from hnne.finch_clustering import FINCH
 from hnne.hierarchical_projection import multi_step_projection, PreliminaryEmbedding
+import warnings
+
+# Ensure that Warnings are shown
+warnings.simplefilter('always', DeprecationWarning)
+warnings.simplefilter('always', UserWarning)
 
 
 @dataclass
@@ -40,7 +45,10 @@ class HNNE(BaseEstimator):
 
     Parameters
     ----------
-    dim: int (default 2)
+    dim: Optional[int] (default None) (deprecated)
+        The dimension of the target space of the projection.
+
+    n_components: int (default 2)
         The dimension of the target space of the projection.
 
     metric: str (default 'cosine')
@@ -69,7 +77,7 @@ class HNNE(BaseEstimator):
 
     hierarchy_parameters: Optional[HierarchyParameters]
         An object holding the parameters which encode the h-nne hierarchy. They are saved during fitting and can be
-        reused both during projecting new points or projecting again with different parameters, e.g. dim.
+        reused both during projecting new points or projecting again with different parameters, e.g. n_components.
 
     References
     ----------
@@ -84,15 +92,35 @@ class HNNE(BaseEstimator):
         M. Saquib Sarfraz (saquibsarfraz@gmail.com)
         Karlsruhe Institute of Technology (KIT)
     """
+
     def __init__(
             self,
-            dim: int = 2,
+            dim: Optional[int] = None,
+            n_components: Optional[int] = None,
             metric: str = 'cosine',
             radius: float = 0.4,
             ann_threshold: int = 40000,
             preliminary_embedding: str = 'pca'
     ):
-        self.dim = dim
+        if (dim is not None) and (n_components is not None):
+            if dim == n_components:
+                warnings.warn(f'It is sufficient to specify `n_components`.', UserWarning)
+            else:
+                raise ValueError(f'Conflicting values: {dim=} and {n_components=}. '
+                                 f'Please specify only `n_components` as `dim` is being deprecated.')
+
+        if (dim is None) and (n_components is None):
+            n_components = 2
+
+        if dim is not None:
+            self.n_components = dim
+            warnings.warn(
+                'The argument `dim` is being deprecated in favor of `n_components` and will be '
+                'removed in a future release', DeprecationWarning
+            )
+        else:
+            self.n_components = n_components
+
         self.radius = radius
         self.ann_threshold = ann_threshold
         try:
@@ -150,7 +178,8 @@ class HNNE(BaseEstimator):
             self,
             X: np.ndarray,
             y: np.ndarray = None,
-            dim: int = 2,
+            dim: Optional[int] = None,
+            override_dim: Optional[int] = None,
             verbose: bool = False,
             skip_hierarchy_building_if_done: bool = True
     ):
@@ -165,16 +194,30 @@ class HNNE(BaseEstimator):
         y: array, shape (n_samples, )
             Ignored.
 
-        dim: int (default 2)
+        dim: Optional[int] (default None) (deprecated)
             Argument used to overwrite the original dimension of the target space of the projection.
 
-        verbose: bool
+        override_dim: Optional[int] (default None)
+            Argument used to overwrite the original dimension of the target space of the projection.
+
+        verbose: bool (default False)
             If true, plot info and progress messages.
 
-        skip_hierarchy_building_if_done:
+        skip_hierarchy_building_if_done: bool (default True)
             If true, the h-nne hierarchy will be built only on the first run of fit. Warning: if you need to project
             a new dataset with the same HNNE object, then you have to set this to false.
         """
+        if (dim is not None) and (override_dim is not None):
+            if dim == override_dim:
+                warnings.warn(f'It is sufficient to specify `override_dim`.', UserWarning)
+            else:
+                raise ValueError(f'Conflicting values: {dim=} and {override_dim=}. '
+                                 f'Please specify only `override_dim` as `dim` is being deprecated.')
+
+        if dim is not None:
+            warnings.warn('The argument `dim` is being deprecated in favor of `override_dim`', DeprecationWarning)
+            override_dim = dim
+
         if self.hierarchy_parameters is not None and skip_hierarchy_building_if_done:
             if verbose:
                 print('Skipping the hierarchy construction as it is already available.')
@@ -189,13 +232,13 @@ class HNNE(BaseEstimator):
                 partition_labels
             ] = self.fit_only_hierarchy(X, verbose=verbose)
 
-        if dim is not None and dim != self.dim:
+        if (override_dim is not None) and (override_dim != self.n_components):
             if verbose:
-                print(f'Overwriting the dimensions {self.dim} to the new value {dim}.')
-            self.dim = dim
+                print(f'Overwriting the dimensions {self.n_components} to the new value {override_dim}.')
+            self.n_components = override_dim
 
         if verbose:
-            print(f'Projecting to {dim} dimensions...')
+            print(f'Projecting to {override_dim} dimensions...')
         [
             projection,
             projected_centroid_radii,
@@ -211,11 +254,11 @@ class HNNE(BaseEstimator):
             partition_labels=partition_labels,
             radius=self.radius,
             ann_threshold=self.ann_threshold,
-            dim=self.dim,
+            dim=self.n_components,
             partition_sizes=partition_sizes,
             preliminary_embedding=self.preliminary_embedding,
             verbose=verbose
-        ) 
+        )
 
         self.projection_parameters = ProjectionParameters(
             pca=pca,
@@ -227,9 +270,9 @@ class HNNE(BaseEstimator):
             inflation_params_list=inflation_params_list,
             knn_index_transform=None
         )
-        
+
         return projection
-        
+
     def transform(self, X: np.ndarray, ann_point_combination_threshold: int = 400e6, verbose: bool = False):
         if self.hierarchy_parameters is None or self.projection_parameters is None:
             raise ValueError('Unable to project as h-nne has not been fitted on a dataset.')
@@ -264,7 +307,7 @@ class HNNE(BaseEstimator):
         X = pparams.pca.transform(X)
 
         # Apply inflation to points, if applicable
-        if self.dim <= 3:
+        if self.n_components <= 3:
             for rot, norm1_params, norm2_params in pparams.inflation_params_list[-1]:
                 m1, s1 = norm1_params
                 m1, s1 = m1[nearest_anchor_idxs], s1[nearest_anchor_idxs]
@@ -297,7 +340,7 @@ class HNNE(BaseEstimator):
     def save(self, path):
         with open(path, 'wb') as f:
             pickle.dump(self, f, pickle.HIGHEST_PROTOCOL)
-            
+
     @staticmethod
     def load(path):
         with open(path, 'rb') as f:
