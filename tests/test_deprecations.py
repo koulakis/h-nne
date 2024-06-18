@@ -18,6 +18,18 @@ def test_hnne_new_n_components():
     assert projection.shape == (1000, 3)
 
 
+def test_dimensionality_3d():
+    hnne = HNNE(n_components=3)
+    projection = hnne.fit_transform(data)
+    assert projection.shape == (1000, 3)
+
+
+def test_dimensionality_2d():
+    hnne = HNNE(n_components=2)
+    projection = hnne.fit_transform(data)
+    assert projection.shape == (1000, 2)
+
+
 def test_both_arguments_specified():
     with pytest.warns(UserWarning, match='It is sufficient to specify `n_components`'):
         hnne = HNNE(n_components=3, dim=3)
@@ -27,7 +39,7 @@ def test_both_arguments_specified():
 def test_fit_transform_dim_deprecation():
     hnne = HNNE(n_components=3)
     with pytest.warns(DeprecationWarning, match='The argument `dim` is being deprecated in favor of `override_dim`'):
-        projection = hnne.fit(data, dim=2)
+        projection = hnne.fit_transform(data, dim=2)
         assert projection.shape == (1000, 2)
 
 
