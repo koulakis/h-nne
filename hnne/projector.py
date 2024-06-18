@@ -102,15 +102,15 @@ class HNNE(BaseEstimator):
             ann_threshold: int = 40000,
             preliminary_embedding: str = 'pca'
     ):
-        if (dim is None) and (n_components is None):
-            raise ValueError('Either `dim` or `n_components` must be specified.')
-
         if (dim is not None) and (n_components is not None):
             if dim == n_components:
                 warnings.warn(f'It is sufficient to specify `n_components`.', UserWarning)
             else:
                 raise ValueError(f'Conflicting values: {dim=} and {n_components=}. '
                                  f'Please specify only `n_components` as `dim` is being deprecated.')
+
+        if (dim is None) and (n_components is None):
+            n_components = 2
 
         if dim is not None:
             self.n_components = dim
