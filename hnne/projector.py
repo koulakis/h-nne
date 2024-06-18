@@ -96,7 +96,7 @@ class HNNE(BaseEstimator):
     def __init__(
             self,
             dim: Optional[int] = None,
-            n_components: Union[int, None] = None,
+            n_components: Optional[int] = None,
             metric: str = 'cosine',
             radius: float = 0.4,
             ann_threshold: int = 40000,
