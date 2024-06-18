@@ -45,7 +45,7 @@ class HNNE(BaseEstimator):
 
     Parameters
     ----------
-    dim: int (default 2) (deprecated)
+    dim: Optional[int] (default None) (deprecated)
         The dimension of the target space of the projection.
 
     n_components: int (default 2)
@@ -92,9 +92,10 @@ class HNNE(BaseEstimator):
         M. Saquib Sarfraz (saquibsarfraz@gmail.com)
         Karlsruhe Institute of Technology (KIT)
     """
+
     def __init__(
             self,
-            dim: Union[Optional[int], None] = None,
+            dim: Optional[int] = None,
             n_components: Union[int, None] = None,
             metric: str = 'cosine',
             radius: float = 0.4,
@@ -177,8 +178,8 @@ class HNNE(BaseEstimator):
             self,
             X: np.ndarray,
             y: np.ndarray = None,
-            dim: Union[Optional[int], None] = None,
-            override_dim: Union[Optional[int], None] = None,
+            dim: Optional[int] = None,
+            override_dim: Optional[int] = None,
             verbose: bool = False,
             skip_hierarchy_building_if_done: bool = True
     ):
@@ -193,16 +194,16 @@ class HNNE(BaseEstimator):
         y: array, shape (n_samples, )
             Ignored.
 
-        dim: Union[Optional[int], None] (default None) (deprecated)
+        dim: Optional[int] (default None) (deprecated)
             Argument used to overwrite the original dimension of the target space of the projection.
 
-        override_dim: Union[Optional[int], None] (default None)
+        override_dim: Optional[int] (default None)
             Argument used to overwrite the original dimension of the target space of the projection.
 
-        verbose: bool
+        verbose: bool (default False)
             If true, plot info and progress messages.
 
-        skip_hierarchy_building_if_done:
+        skip_hierarchy_building_if_done: bool (default True)
             If true, the h-nne hierarchy will be built only on the first run of fit. Warning: if you need to project
             a new dataset with the same HNNE object, then you have to set this to false.
         """
@@ -257,7 +258,7 @@ class HNNE(BaseEstimator):
             partition_sizes=partition_sizes,
             preliminary_embedding=self.preliminary_embedding,
             verbose=verbose
-        ) 
+        )
 
         self.projection_parameters = ProjectionParameters(
             pca=pca,
@@ -269,9 +270,9 @@ class HNNE(BaseEstimator):
             inflation_params_list=inflation_params_list,
             knn_index_transform=None
         )
-        
+
         return projection
-        
+
     def transform(self, X: np.ndarray, ann_point_combination_threshold: int = 400e6, verbose: bool = False):
         if self.hierarchy_parameters is None or self.projection_parameters is None:
             raise ValueError('Unable to project as h-nne has not been fitted on a dataset.')
@@ -339,7 +340,7 @@ class HNNE(BaseEstimator):
     def save(self, path):
         with open(path, 'wb') as f:
             pickle.dump(self, f, pickle.HIGHEST_PROTOCOL)
-            
+
     @staticmethod
     def load(path):
         with open(path, 'rb') as f:
