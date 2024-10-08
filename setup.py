@@ -4,6 +4,11 @@ from pathlib import Path
 this_directory = Path(__file__).parent
 long_description = (this_directory / "README.rst").read_text()
 
+test_dependencies = [
+    "pytest",
+    "torchvision"
+]
+
 
 setuptools.setup(
     name="hnne",
@@ -36,7 +41,10 @@ setuptools.setup(
         "cython",
     ],
     test_suite="pytest",
-    tests_require=["pytest"],
+    tests_require=test_dependencies,
+    extras_require={
+        "test": test_dependencies
+    },
     project_urls={
         "Documentation": "https://hnne.readthedocs.io/en/latest/",
         "Repository": "https://github.com/koulakis/h-nne",
