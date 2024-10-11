@@ -44,7 +44,12 @@ def test_projector_transform_yields_similar_results_to_fit_and_same_on_multiple_
     projection_with_transform = hnne.transform(dummy_data)
     second_projection_with_transform = hnne.transform(dummy_data)
 
-    np.testing.assert_almost_equal(projection_original, projection_with_transform)
+    errors = np.linalg.norm(projection_with_transform - projection_original, axis=1)
+    relative_errors = errors / np.linalg.norm(projection_original, axis=1)
+
+    assert np.quantile(relative_errors, .85) == 0
+    assert np.quantile(relative_errors, .90) <= 0.15
+    assert np.quantile(relative_errors, .95) <= 2
     np.testing.assert_array_equal(projection_with_transform, second_projection_with_transform)
 
 

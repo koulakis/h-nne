@@ -1,6 +1,6 @@
 import pickle
 from dataclasses import dataclass
-from typing import Optional, List, Any, Union
+from typing import Optional, List, Any
 
 import numpy as np
 from sklearn import metrics
@@ -317,11 +317,14 @@ class HNNE(BaseEstimator):
                 X = np.dot(X, rot)
                 X = (X - m2) / s2
                 X = np.dot(X, np.linalg.inv(rot))
-                data_norms = np.linalg.norm(X, axis=-1)
-                X = np.where(
-                    np.expand_dims(data_norms > 1, axis=-1),
-                    X / np.expand_dims(data_norms, axis=-1),
-                    X)
+            # Some points might be placed on the wrong centroid and get pushed too far away after applying inflation.
+            # To remedy this, we allow points only to inflate up to 3 stds of each centroid partition.
+            max_norm_allowed = 3.0
+            data_norms = np.linalg.norm(X, axis=-1)
+            X = np.where(
+                np.expand_dims(data_norms > max_norm_allowed, axis=-1),
+                max_norm_allowed * X / np.expand_dims(data_norms, axis=-1),
+                X)
 
         # Compute parameters related to the nearest anchors
         projected_nearest_anchors = pparams.projected_centroids[-2][nearest_anchor_idxs]
