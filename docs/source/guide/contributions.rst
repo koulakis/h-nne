@@ -76,3 +76,4 @@ To upload a new version:
     twine upload dist/*
 
 - Check that the new version is in https://pypi.org/project/hnne
+- Build a new documentation version in https://hnne.readthedocs.io/en/latest
