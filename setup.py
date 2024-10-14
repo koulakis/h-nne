@@ -10,7 +10,7 @@ test_dependencies = ["pytest", "torchvision", "pre_commit"]
 
 setuptools.setup(
     name="hnne",
-    version="0.1.10",
+    version="1.0.0",
     author="Marios Koulakis, Saquib Sarfraz",
     author_email="marios.koulakis@gmail.com, saquibsarfraz@gmail.com",
     description="A fast hierarchical dimensionality reduction algorithm.",
