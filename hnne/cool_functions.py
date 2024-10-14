@@ -18,7 +18,9 @@ def cool_mean(data, partition):
     """
     s = data.shape[0]
     un, nf = np.unique(partition, return_counts=True)
-    umat = sp.csr_matrix((np.ones(s, dtype='float32'), (np.arange(0, s), partition)), shape=(s, len(un)))
+    umat = sp.csr_matrix(
+        (np.ones(s, dtype="float32"), (np.arange(0, s), partition)), shape=(s, len(un))
+    )
     return (umat.T @ data) / nf[..., np.newaxis]
 
 

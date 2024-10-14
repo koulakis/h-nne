@@ -4,10 +4,7 @@ from hnne.cool_functions import cool_normalize
 
 
 def norm_angle(data, theta, partition):
-    rot = np.array([
-        [np.cos(theta), np.sin(theta)],
-        [-np.sin(theta), np.cos(theta)]
-    ])
+    rot = np.array([[np.cos(theta), np.sin(theta)], [-np.sin(theta), np.cos(theta)]])
 
     data, norm1_params = cool_normalize(data, partition)
 
@@ -26,21 +23,23 @@ def norm_angles(data, angles, partition_mapping):
 
 
 def norm_angle_3d(data, alpha, beta, gamma, partition):
-    r_x = np.array([
-        [np.cos(alpha), -np.sin(alpha), 0],
-        [np.sin(alpha), np.cos(alpha), 0],
-        [0, 0, 1]
-    ])
-    r_y = np.array([
-        [np.cos(beta), 0, np.sin(beta)],
-        [0, 1, 0],
-        [-np.sin(beta), 0, np.cos(beta)]
-    ])
-    r_z = np.array([
-        [1, 0, 0],
-        [0, np.cos(gamma), -np.sin(gamma)],
-        [0, np.sin(gamma), np.cos(gamma)]
-    ])
+    r_x = np.array(
+        [
+            [np.cos(alpha), -np.sin(alpha), 0],
+            [np.sin(alpha), np.cos(alpha), 0],
+            [0, 0, 1],
+        ]
+    )
+    r_y = np.array(
+        [[np.cos(beta), 0, np.sin(beta)], [0, 1, 0], [-np.sin(beta), 0, np.cos(beta)]]
+    )
+    r_z = np.array(
+        [
+            [1, 0, 0],
+            [0, np.cos(gamma), -np.sin(gamma)],
+            [0, np.sin(gamma), np.cos(gamma)],
+        ]
+    )
 
     rot = np.dot(r_x, np.dot(r_y, r_z))
 

@@ -1,1 +1,1 @@
-from .projector import HNNE
+from .projector import HNNE  # noqa: F401
