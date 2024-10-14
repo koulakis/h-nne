@@ -33,12 +33,12 @@ def clust_rank(
         if verbose:
             print("Step PyNNDescent done ...")
 
-    sparce_adjacency_matrix = sp.csr_matrix(
+    sparse_adjacency_matrix = sp.csr_matrix(
         (np.ones_like(initial_rank, dtype=np.float32), (np.arange(0, s), initial_rank)),
         shape=(s, s),
     )
 
-    return sparce_adjacency_matrix, orig_dist, initial_rank, knn_index
+    return sparse_adjacency_matrix, orig_dist, initial_rank, knn_index
 
 
 def get_clust(a, orig_dist, min_sim=None):

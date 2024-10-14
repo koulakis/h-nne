@@ -5,7 +5,7 @@ name: h-NNE
 
 on:
   push:
-    branches: [ "main", "prepare-for-major-release" ]
+    branches: [ "main" ]
   pull_request:
     branches: [ "main" ]
 

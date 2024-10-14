@@ -1,5 +1,4 @@
 import pickle
-import warnings
 from dataclasses import dataclass
 from typing import Any, List, Optional
 
@@ -12,10 +11,6 @@ from sklearn.preprocessing import StandardScaler
 
 from hnne.finch_clustering import FINCH
 from hnne.hierarchical_projection import PreliminaryEmbedding, multi_step_projection
-
-# Ensure that Warnings are shown
-warnings.simplefilter("always", DeprecationWarning)
-warnings.simplefilter("always", UserWarning)
 
 
 @dataclass
@@ -45,9 +40,6 @@ class HNNE(BaseEstimator):
 
     Parameters
     ----------
-    dim: Optional[int] (default None) (deprecated)
-        The dimension of the target space of the projection.
-
     n_components: int (default 2)
         The dimension of the target space of the projection.
 
@@ -95,39 +87,16 @@ class HNNE(BaseEstimator):
 
     def __init__(
         self,
-        dim: Optional[int] = None,
-        n_components: Optional[int] = None,
+        n_components: int = 2,
         metric: str = "cosine",
         radius: float = 0.4,
         ann_threshold: int = 40000,
         preliminary_embedding: str = "pca",
     ):
-        if (dim is not None) and (n_components is not None):
-            if dim == n_components:
-                warnings.warn(
-                    "It is sufficient to specify `n_components`.", UserWarning
-                )
-            else:
-                raise ValueError(
-                    f"Conflicting values: {dim=} and {n_components=}. "
-                    "Please specify only `n_components` as `dim` is being deprecated."
-                )
-
-        if (dim is None) and (n_components is None):
-            n_components = 2
-
-        if dim is not None:
-            self.n_components = dim
-            warnings.warn(
-                "The argument `dim` is being deprecated in favor of `n_components` and will be "
-                "removed in a future release",
-                DeprecationWarning,
-            )
-        else:
-            self.n_components = n_components
-
+        self.n_components = n_components
         self.radius = radius
         self.ann_threshold = ann_threshold
+
         try:
             preliminary_embedding = PreliminaryEmbedding[preliminary_embedding]
         except KeyError:
@@ -176,12 +145,10 @@ class HNNE(BaseEstimator):
 
         return partitions, partition_sizes, partition_labels
 
-    # noinspection PyUnusedLocal
     def fit(
         self,
         X: np.ndarray,
         y: np.ndarray = None,
-        dim: Optional[int] = None,
         override_dim: Optional[int] = None,
         verbose: bool = False,
         skip_hierarchy_building_if_done: bool = True,
@@ -197,9 +164,6 @@ class HNNE(BaseEstimator):
         y: array, shape (n_samples, )
             Ignored.
 
-        dim: Optional[int] (default None) (deprecated)
-            Argument used to overwrite the original dimension of the target space of the projection.
-
         override_dim: Optional[int] (default None)
             Argument used to overwrite the original dimension of the target space of the projection.
 
@@ -210,24 +174,6 @@ class HNNE(BaseEstimator):
             If true, the h-nne hierarchy will be built only on the first run of fit. Warning: if you need to project
             a new dataset with the same HNNE object, then you have to set this to false.
         """
-        if (dim is not None) and (override_dim is not None):
-            if dim == override_dim:
-                warnings.warn(
-                    "It is sufficient to specify `override_dim`.", UserWarning
-                )
-            else:
-                raise ValueError(
-                    f"Conflicting values: {dim=} and {override_dim=}. "
-                    "Please specify only `override_dim` as `dim` is being deprecated."
-                )
-
-        if dim is not None:
-            warnings.warn(
-                "The argument `dim` is being deprecated in favor of `override_dim`",
-                DeprecationWarning,
-            )
-            override_dim = dim
-
         if self.hierarchy_parameters is not None and skip_hierarchy_building_if_done:
             if verbose:
                 print("Skipping the hierarchy construction as it is already available.")
@@ -251,7 +197,7 @@ class HNNE(BaseEstimator):
             self.n_components = override_dim
 
         if verbose:
-            print(f"Projecting to {override_dim} dimensions...")
+            print(f"Projecting to {self.n_components} dimensions...")
         [
             projection,
             projected_centroid_radii,
@@ -292,6 +238,9 @@ class HNNE(BaseEstimator):
         ann_point_combination_threshold: int = 400e6,
         verbose: bool = False,
     ):
+        NNS = 30
+        MAX_NORM_ALLOWED = 3.0
+
         if self.hierarchy_parameters is None or self.projection_parameters is None:
             raise ValueError(
                 "Unable to project as h-nne has not been fitted on a dataset."
@@ -305,13 +254,12 @@ class HNNE(BaseEstimator):
             len(hparams.lowest_level_centroids) * len(X)
             > ann_point_combination_threshold
         ):
-            nns = 30
             if pparams.knn_index_transform is None:
                 if verbose:
                     print("Setting up once a knn index for the last level centroids...")
                 knn_index = NNDescent(
                     hparams.lowest_level_centroids,
-                    n_neighbors=nns,
+                    n_neighbors=NNS,
                     metric=self.metric,
                     verbose=verbose,
                 )
@@ -319,7 +267,7 @@ class HNNE(BaseEstimator):
                 pparams.knn_index_transform = knn_index
             else:
                 knn_index = pparams.knn_index_transform
-            nearest_anchor_idxs = knn_index.query(X, k=nns)[0][:, 0]
+            nearest_anchor_idxs = knn_index.query(X, k=NNS)[0][:, 0]
         else:
             orig_dist = metrics.pairwise.pairwise_distances(
                 X, hparams.lowest_level_centroids, metric=self.metric
@@ -344,12 +292,11 @@ class HNNE(BaseEstimator):
                 X = (X - m2) / s2
                 X = np.dot(X, np.linalg.inv(rot))
             # Some points might be placed on the wrong centroid and get pushed too far away after applying inflation.
-            # To remedy this, we allow points only to inflate up to 3 stds of each centroid partition.
-            max_norm_allowed = 3.0
+            # To remedy this, we allow points only to inflate up to a number of stds of each centroid partition.
             data_norms = np.linalg.norm(X, axis=-1)
             X = np.where(
-                np.expand_dims(data_norms > max_norm_allowed, axis=-1),
-                max_norm_allowed * X / np.expand_dims(data_norms, axis=-1),
+                np.expand_dims(data_norms > MAX_NORM_ALLOWED, axis=-1),
+                MAX_NORM_ALLOWED * X / np.expand_dims(data_norms, axis=-1),
                 X,
             )
 
