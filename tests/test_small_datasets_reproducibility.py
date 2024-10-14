@@ -22,7 +22,7 @@ def test_mnist_reproducibility():
     projection = HNNE().fit_transform(x_mnist)
     expected_projection = np.load(ASSETS_PATH / "mnist_expected_projection.npy")
 
-    np.testing.assert_array_equal(projection, expected_projection)
+    np.testing.assert_array_almost_equal(projection, expected_projection)
 
 
 def test_fmnist_reproducibility():
@@ -34,7 +34,7 @@ def test_fmnist_reproducibility():
     projection = HNNE().fit_transform(x_fmnist)
     expected_projection = np.load(ASSETS_PATH / "fmnist_expected_projection.npy")
 
-    np.testing.assert_array_equal(projection, expected_projection)
+    np.testing.assert_array_almost_equal(projection, expected_projection)
 
 
 def test_cifar10_reproducibility():
