@@ -1,3 +1,13 @@
+.. image:: https://github.com/koulakis/h-nne/actions/workflows/actions.yml/badge.svg?branch=main
+    :target: https://github.com/koulakis/h-nne/actions/workflows/actions.yml
+    :alt: Build Status
+
+.. image:: https://readthedocs.org/projects/hnne/badge/?version=latest
+    :target: https://hnne.readthedocs.io/en/latest/?badge=latest
+    :alt: Documentation Status
+
+
+
 ==============================================
 h-NNE: Hierarchical Nearest Neighbor Embedding
 ==============================================
@@ -99,3 +109,11 @@ If you make use of the clustering properties of the algorithm please also cite:
       pages = {8934--8943},
       year  = {2019}
    }
+
+------------
+Contributing
+------------
+
+Contributions are very welcome :-) Please check the `contributions guide`__ for more details.
+
+.. __: docs/source/guide/contributions
