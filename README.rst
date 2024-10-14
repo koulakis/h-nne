@@ -116,4 +116,4 @@ Contributing
 
 Contributions are very welcome :-) Please check the `contributions guide`__ for more details.
 
-.. __: docs/source/guide/contributions
+.. __: docs/source/guide/contributions.rst
