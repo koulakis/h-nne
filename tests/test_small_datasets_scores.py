@@ -1,8 +1,14 @@
 from pathlib import Path
 
 import numpy as np
+from utils import (
+    compute_accuracy,
+    get_datasets_path,
+    load_cifar10_test,
+    load_fmnist_test,
+    load_mnist_test,
+)
 
-from utils import load_mnist_test, load_fmnist_test, load_cifar10_test, get_datasets_path, compute_accuracy
 from hnne import HNNE
 
 ASSETS_PATH = Path(__file__).parent / "assets/small_dataset_projections"

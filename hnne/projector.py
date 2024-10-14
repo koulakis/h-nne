@@ -1,21 +1,21 @@
 import pickle
+import warnings
 from dataclasses import dataclass
-from typing import Optional, List, Any
+from typing import Any, List, Optional
 
 import numpy as np
+from pynndescent import NNDescent
 from sklearn import metrics
+from sklearn.base import BaseEstimator
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
-from sklearn.base import BaseEstimator
-from pynndescent import NNDescent
 
 from hnne.finch_clustering import FINCH
-from hnne.hierarchical_projection import multi_step_projection, PreliminaryEmbedding
-import warnings
+from hnne.hierarchical_projection import PreliminaryEmbedding, multi_step_projection
 
 # Ensure that Warnings are shown
-warnings.simplefilter('always', DeprecationWarning)
-warnings.simplefilter('always', UserWarning)
+warnings.simplefilter("always", DeprecationWarning)
+warnings.simplefilter("always", UserWarning)
 
 
 @dataclass
@@ -94,20 +94,24 @@ class HNNE(BaseEstimator):
     """
 
     def __init__(
-            self,
-            dim: Optional[int] = None,
-            n_components: Optional[int] = None,
-            metric: str = 'cosine',
-            radius: float = 0.4,
-            ann_threshold: int = 40000,
-            preliminary_embedding: str = 'pca'
+        self,
+        dim: Optional[int] = None,
+        n_components: Optional[int] = None,
+        metric: str = "cosine",
+        radius: float = 0.4,
+        ann_threshold: int = 40000,
+        preliminary_embedding: str = "pca",
     ):
         if (dim is not None) and (n_components is not None):
             if dim == n_components:
-                warnings.warn(f'It is sufficient to specify `n_components`.', UserWarning)
+                warnings.warn(
+                    "It is sufficient to specify `n_components`.", UserWarning
+                )
             else:
-                raise ValueError(f'Conflicting values: {dim=} and {n_components=}. '
-                                 f'Please specify only `n_components` as `dim` is being deprecated.')
+                raise ValueError(
+                    f"Conflicting values: {dim=} and {n_components=}. "
+                    "Please specify only `n_components` as `dim` is being deprecated."
+                )
 
         if (dim is None) and (n_components is None):
             n_components = 2
@@ -115,8 +119,9 @@ class HNNE(BaseEstimator):
         if dim is not None:
             self.n_components = dim
             warnings.warn(
-                'The argument `dim` is being deprecated in favor of `n_components` and will be '
-                'removed in a future release', DeprecationWarning
+                "The argument `dim` is being deprecated in favor of `n_components` and will be "
+                "removed in a future release",
+                DeprecationWarning,
             )
         else:
             self.n_components = n_components
@@ -127,8 +132,9 @@ class HNNE(BaseEstimator):
             preliminary_embedding = PreliminaryEmbedding[preliminary_embedding]
         except KeyError:
             raise ValueError(
-                f'Invalid preliminary embedding: {preliminary_embedding}. '
-                f'Please select one from: {", ".join(PreliminaryEmbedding)}.')
+                f"Invalid preliminary embedding: {preliminary_embedding}. "
+                f'Please select one from: {", ".join(PreliminaryEmbedding)}.'
+            )
         self.preliminary_embedding = preliminary_embedding
         self.metric = metric
         self.min_size_top_level: int = 3
@@ -137,51 +143,48 @@ class HNNE(BaseEstimator):
 
     def fit_only_hierarchy(self, X: np.ndarray, verbose: bool = False):
         if verbose:
-            print('Building h-NNE hierarchy using FINCH...')
-        [
-            partitions,
-            partition_sizes,
-            partition_labels,
-            lowest_level_centroids
-        ] = FINCH(
+            print("Building h-NNE hierarchy using FINCH...")
+        [partitions, partition_sizes, partition_labels, lowest_level_centroids] = FINCH(
             data=X,
             ensure_early_exit=False,
             verbose=verbose,
             distance=self.metric,
-            ann_threshold=self.ann_threshold
+            ann_threshold=self.ann_threshold,
         )
 
-        large_enough_partitions = np.argwhere(np.array(partition_sizes) >= self.min_size_top_level)
+        large_enough_partitions = np.argwhere(
+            np.array(partition_sizes) >= self.min_size_top_level
+        )
         if len(large_enough_partitions) == 0:
             raise ValueError(
-                f'The dataset has too few points resulting to a hierarchy with sizes {partition_sizes}. Please provide'
-                f' a larger amount of data till there exists one partition of size {self.min_size_top_level}.')
+                f"The dataset has too few points resulting to a hierarchy with sizes {partition_sizes}. Please provide"
+                f" a larger amount of data till there exists one partition of size {self.min_size_top_level}."
+            )
         max_partition_idx = int(large_enough_partitions.max()) + 1
         if max_partition_idx < len(partition_sizes) and verbose:
-            print(f'Removing {len(partition_sizes) - max_partition_idx} levels from the top to start with a level'
-                  f'of size at least {self.min_size_top_level}.')
+            print(
+                f"Removing {len(partition_sizes) - max_partition_idx} levels from the top to start with a level"
+                f"of size at least {self.min_size_top_level}."
+            )
         partition_sizes = partition_sizes[:max_partition_idx]
         partitions = partitions[:, :max_partition_idx]
         partition_labels = partition_labels[:max_partition_idx]
 
         self.hierarchy_parameters = HierarchyParameters(
-            partitions,
-            partition_sizes,
-            partition_labels,
-            lowest_level_centroids
+            partitions, partition_sizes, partition_labels, lowest_level_centroids
         )
 
         return partitions, partition_sizes, partition_labels
 
     # noinspection PyUnusedLocal
     def fit(
-            self,
-            X: np.ndarray,
-            y: np.ndarray = None,
-            dim: Optional[int] = None,
-            override_dim: Optional[int] = None,
-            verbose: bool = False,
-            skip_hierarchy_building_if_done: bool = True
+        self,
+        X: np.ndarray,
+        y: np.ndarray = None,
+        dim: Optional[int] = None,
+        override_dim: Optional[int] = None,
+        verbose: bool = False,
+        skip_hierarchy_building_if_done: bool = True,
     ):
         """
         Build an h-nne hierarchy based on X and use it to project X.
@@ -209,36 +212,46 @@ class HNNE(BaseEstimator):
         """
         if (dim is not None) and (override_dim is not None):
             if dim == override_dim:
-                warnings.warn(f'It is sufficient to specify `override_dim`.', UserWarning)
+                warnings.warn(
+                    "It is sufficient to specify `override_dim`.", UserWarning
+                )
             else:
-                raise ValueError(f'Conflicting values: {dim=} and {override_dim=}. '
-                                 f'Please specify only `override_dim` as `dim` is being deprecated.')
+                raise ValueError(
+                    f"Conflicting values: {dim=} and {override_dim=}. "
+                    "Please specify only `override_dim` as `dim` is being deprecated."
+                )
 
         if dim is not None:
-            warnings.warn('The argument `dim` is being deprecated in favor of `override_dim`', DeprecationWarning)
+            warnings.warn(
+                "The argument `dim` is being deprecated in favor of `override_dim`",
+                DeprecationWarning,
+            )
             override_dim = dim
 
         if self.hierarchy_parameters is not None and skip_hierarchy_building_if_done:
             if verbose:
-                print('Skipping the hierarchy construction as it is already available.')
+                print("Skipping the hierarchy construction as it is already available.")
             hparams = self.hierarchy_parameters
-            partitions, partition_sizes, partition_labels = \
-                hparams.partitions, hparams.partition_sizes, hparams.partition_labels
+            partitions, partition_sizes, partition_labels = (
+                hparams.partitions,
+                hparams.partition_sizes,
+                hparams.partition_labels,
+            )
 
         else:
-            [
-                partitions,
-                partition_sizes,
-                partition_labels
-            ] = self.fit_only_hierarchy(X, verbose=verbose)
+            [partitions, partition_sizes, partition_labels] = self.fit_only_hierarchy(
+                X, verbose=verbose
+            )
 
         if (override_dim is not None) and (override_dim != self.n_components):
             if verbose:
-                print(f'Overwriting the dimensions {self.n_components} to the new value {override_dim}.')
+                print(
+                    f"Overwriting the dimensions {self.n_components} to the new value {override_dim}."
+                )
             self.n_components = override_dim
 
         if verbose:
-            print(f'Projecting to {override_dim} dimensions...')
+            print(f"Projecting to {override_dim} dimensions...")
         [
             projection,
             projected_centroid_radii,
@@ -247,7 +260,7 @@ class HNNE(BaseEstimator):
             scaler,
             points_means,
             points_max_radii,
-            inflation_params_list
+            inflation_params_list,
         ] = multi_step_projection(
             data=X,
             partitions=partitions,
@@ -257,7 +270,7 @@ class HNNE(BaseEstimator):
             dim=self.n_components,
             partition_sizes=partition_sizes,
             preliminary_embedding=self.preliminary_embedding,
-            verbose=verbose
+            verbose=verbose,
         )
 
         self.projection_parameters = ProjectionParameters(
@@ -268,40 +281,53 @@ class HNNE(BaseEstimator):
             points_means=points_means,
             points_max_radii=points_max_radii,
             inflation_params_list=inflation_params_list,
-            knn_index_transform=None
+            knn_index_transform=None,
         )
 
         return projection
 
-    def transform(self, X: np.ndarray, ann_point_combination_threshold: int = 400e6, verbose: bool = False):
+    def transform(
+        self,
+        X: np.ndarray,
+        ann_point_combination_threshold: int = 400e6,
+        verbose: bool = False,
+    ):
         if self.hierarchy_parameters is None or self.projection_parameters is None:
-            raise ValueError('Unable to project as h-nne has not been fitted on a dataset.')
+            raise ValueError(
+                "Unable to project as h-nne has not been fitted on a dataset."
+            )
         hparams = self.hierarchy_parameters
         pparams = self.projection_parameters
 
         if verbose:
-            print('Finding nearest centroids to new data...')
-        if len(hparams.lowest_level_centroids) * len(X) > ann_point_combination_threshold:
+            print("Finding nearest centroids to new data...")
+        if (
+            len(hparams.lowest_level_centroids) * len(X)
+            > ann_point_combination_threshold
+        ):
             nns = 30
             if pparams.knn_index_transform is None:
                 if verbose:
-                    print('Setting up once a knn index for the last level centroids...')
+                    print("Setting up once a knn index for the last level centroids...")
                 knn_index = NNDescent(
                     hparams.lowest_level_centroids,
                     n_neighbors=nns,
                     metric=self.metric,
-                    verbose=verbose)
+                    verbose=verbose,
+                )
                 knn_index.prepare()
                 pparams.knn_index_transform = knn_index
             else:
                 knn_index = pparams.knn_index_transform
             nearest_anchor_idxs = knn_index.query(X, k=nns)[0][:, 0]
         else:
-            orig_dist = metrics.pairwise.pairwise_distances(X, hparams.lowest_level_centroids, metric=self.metric)
+            orig_dist = metrics.pairwise.pairwise_distances(
+                X, hparams.lowest_level_centroids, metric=self.metric
+            )
             nearest_anchor_idxs = np.argmin(orig_dist, axis=1)
 
         if verbose:
-            print('Projecting data...')
+            print("Projecting data...")
         # Project the points with pca
         X = pparams.scaler.transform(X)
         X = pparams.pca.transform(X)
@@ -324,12 +350,17 @@ class HNNE(BaseEstimator):
             X = np.where(
                 np.expand_dims(data_norms > max_norm_allowed, axis=-1),
                 max_norm_allowed * X / np.expand_dims(data_norms, axis=-1),
-                X)
+                X,
+            )
 
         # Compute parameters related to the nearest anchors
         projected_nearest_anchors = pparams.projected_centroids[-2][nearest_anchor_idxs]
-        max_radii = np.expand_dims(pparams.points_max_radii[-1][nearest_anchor_idxs], axis=-1)
-        centroid_radii = np.expand_dims(pparams.projected_centroid_radii[-1][nearest_anchor_idxs], axis=-1)
+        max_radii = np.expand_dims(
+            pparams.points_max_radii[-1][nearest_anchor_idxs], axis=-1
+        )
+        centroid_radii = np.expand_dims(
+            pparams.projected_centroid_radii[-1][nearest_anchor_idxs], axis=-1
+        )
 
         # Normalize relative to the maximum anchor group original point radius
         points_mean = pparams.points_means[-1][nearest_anchor_idxs]
@@ -341,10 +372,10 @@ class HNNE(BaseEstimator):
     fit_transform = fit
 
     def save(self, path):
-        with open(path, 'wb') as f:
+        with open(path, "wb") as f:
             pickle.dump(self, f, pickle.HIGHEST_PROTOCOL)
 
     @staticmethod
     def load(path):
-        with open(path, 'rb') as f:
+        with open(path, "rb") as f:
             return pickle.load(f)

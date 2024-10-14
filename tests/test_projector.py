@@ -1,7 +1,7 @@
 import numpy as np
+from utils import generate_inception_graph_dataset
 
 from hnne import HNNE
-from utils import generate_inception_graph_dataset
 
 
 def test_projector_smoke_test():
@@ -25,13 +25,12 @@ def test_projector_inception_dataset():
             np.repeat(np.arange(9**2), repeats=9),
             np.repeat(np.arange(9), repeats=9**2),
         ],
-        axis=1
+        axis=1,
     )
 
     assert len(levels) == len(hnne.projection_parameters.projected_centroids)
     np.testing.assert_array_equal(
-        hnne.hierarchy_parameters.partitions,
-        expected_partitions
+        hnne.hierarchy_parameters.partitions, expected_partitions
     )
 
 
@@ -47,10 +46,12 @@ def test_projector_transform_yields_similar_results_to_fit_and_same_on_multiple_
     errors = np.linalg.norm(projection_with_transform - projection_original, axis=1)
     relative_errors = errors / np.linalg.norm(projection_original, axis=1)
 
-    assert np.quantile(relative_errors, .85) == 0
-    assert np.quantile(relative_errors, .90) <= 0.15
-    assert np.quantile(relative_errors, .95) <= 2
-    np.testing.assert_array_equal(projection_with_transform, second_projection_with_transform)
+    assert np.quantile(relative_errors, 0.85) == 0
+    assert np.quantile(relative_errors, 0.90) <= 0.15
+    assert np.quantile(relative_errors, 0.95) <= 2
+    np.testing.assert_array_equal(
+        projection_with_transform, second_projection_with_transform
+    )
 
 
 def test_projector_transform_yields_similar_results_to_fit_and_same_on_multiple_calls_on_the_inception_dataset():
@@ -66,4 +67,6 @@ def test_projector_transform_yields_similar_results_to_fit_and_same_on_multiple_
     second_projection_with_transform = hnne.transform(inception_dataset)
 
     np.testing.assert_almost_equal(projection_original, projection_with_transform)
-    np.testing.assert_array_equal(projection_with_transform, second_projection_with_transform)
+    np.testing.assert_array_equal(
+        projection_with_transform, second_projection_with_transform
+    )

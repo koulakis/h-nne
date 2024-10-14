@@ -99,4 +99,3 @@ If you make use of the clustering properties of the algorithm please also cite:
       pages = {8934--8943},
       year  = {2019}
    }
-

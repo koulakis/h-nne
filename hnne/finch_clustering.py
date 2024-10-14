@@ -5,19 +5,16 @@
 ####################################################################################################################
 
 import numpy as np
-from sklearn import metrics
 import scipy.sparse as sp
 from pynndescent import NNDescent
+from sklearn import metrics
 
 from hnne.cool_functions import cool_mean
 
 
 def clust_rank(
-        mat,
-        initial_rank=None,
-        metric='cosine',
-        verbose=False,
-        ann_threshold=40000):
+    mat, initial_rank=None, metric="cosine", verbose=False, ann_threshold=40000
+):
     knn_index = None
     s = mat.shape[0]
     if initial_rank is not None:
@@ -28,23 +25,19 @@ def clust_rank(
         initial_rank = np.argmin(orig_dist, axis=1)
     else:
         if verbose:
-            print('Using PyNNDescent to compute 1st-neighbours at this step ...')
-        knn_index = NNDescent(
-            mat, 
-            n_neighbors=2, 
-            metric=metric,
-            verbose=verbose)
+            print("Using PyNNDescent to compute 1st-neighbours at this step ...")
+        knn_index = NNDescent(mat, n_neighbors=2, metric=metric, verbose=verbose)
         result, orig_dist = knn_index.neighbor_graph
         initial_rank = result[:, 1]
         orig_dist[:, 0] = 1e12
         if verbose:
-            print('Step PyNNDescent done ...')
+            print("Step PyNNDescent done ...")
 
     sparce_adjacency_matrix = sp.csr_matrix(
-        (np.ones_like(initial_rank, dtype=np.float32),
-         (np.arange(0, s), initial_rank)),
-        shape=(s, s))
-    
+        (np.ones_like(initial_rank, dtype=np.float32), (np.arange(0, s), initial_rank)),
+        shape=(s, s),
+    )
+
     return sparce_adjacency_matrix, orig_dist, initial_rank, knn_index
 
 
@@ -52,7 +45,9 @@ def get_clust(a, orig_dist, min_sim=None):
     if min_sim is not None:
         a[np.where((orig_dist * a.toarray()) > min_sim)] = 0
 
-    num_clust, u = sp.csgraph.connected_components(csgraph=a, directed=True, connection='weak', return_labels=True)
+    num_clust, u = sp.csgraph.connected_components(
+        csgraph=a, directed=True, connection="weak", return_labels=True
+    )
     return u, num_clust
 
 
@@ -62,9 +57,9 @@ def get_merge(c, u, data):
         c = u[ig]
     else:
         c = u
-    
+
     mat = cool_mean(data, c)
-    
+
     return c, mat
 
 
@@ -93,12 +88,13 @@ def req_numclust(c, data, req_clust, distance):
 
 # noinspection PyPep8Naming
 def FINCH(
-        data,
-        initial_rank=None,
-        distance='cosine',
-        ensure_early_exit=True,
-        verbose=True,
-        ann_threshold=40000):
+    data,
+    initial_rank=None,
+    distance="cosine",
+    ensure_early_exit=True,
+    verbose=True,
+    ann_threshold=40000,
+):
     """FINCH clustering algorithm.
 
     Parameters
@@ -149,23 +145,19 @@ def FINCH(
     data = data.astype(np.float32)
 
     min_sim = None
-    
+
     adj, orig_dist, first_neighbors, _ = clust_rank(
-        data,
-        initial_rank,
-        distance,
-        verbose=verbose,
-        ann_threshold=ann_threshold
+        data, initial_rank, distance, verbose=verbose, ann_threshold=ann_threshold
     )
     initial_rank = None
-    
+
     group, num_clust = get_clust(adj, [], min_sim)
-    
+
     c, mat = get_merge([], group, data)
     lowest_level_centroids = mat
-    
+
     if verbose:
-        print('Level 0: {} clusters'.format(num_clust))
+        print("Level 0: {} clusters".format(num_clust))
 
     if ensure_early_exit:
         if orig_dist.shape[-1] > 2:
@@ -176,22 +168,18 @@ def FINCH(
     k = 1
     num_clust = [num_clust]
     partition_clustering = []
-    while exit_clust > 1:    
+    while exit_clust > 1:
         adj, orig_dist, first_neighbors, knn_index = clust_rank(
-            mat,
-            initial_rank,
-            distance,
-            verbose=verbose,
-            ann_threshold=ann_threshold
+            mat, initial_rank, distance, verbose=verbose, ann_threshold=ann_threshold
         )
 
         u, num_clust_curr = get_clust(adj, orig_dist, min_sim)
 
         partition_clustering.append(u)
-        
+
         c_, mat = get_merge(c_, u, data)
         c = np.column_stack((c, c_))
-        
+
         num_clust.append(num_clust_curr)
         exit_clust = num_clust[-2] - num_clust_curr
 
@@ -201,7 +189,7 @@ def FINCH(
             break
 
         if verbose:
-            print('Level {}: {} clusters'.format(k, num_clust[k]))
+            print("Level {}: {} clusters".format(k, num_clust[k]))
         k += 1
 
     return c, num_clust, partition_clustering, lowest_level_centroids

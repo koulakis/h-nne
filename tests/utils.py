@@ -1,15 +1,15 @@
-from typing import Union
-from pathlib import Path
 import os
+from pathlib import Path
+from typing import Union
 
 import numpy as np
 from sklearn.metrics import accuracy_score
 from sklearn.model_selection import StratifiedKFold
 from sklearn.neighbors import KNeighborsClassifier
-from torchvision.datasets import MNIST, FashionMNIST, CIFAR10
-
+from torchvision.datasets import CIFAR10, MNIST, FashionMNIST
 
 # DATASETS
+
 
 def load_mnist_test(data_path: Union[Path, str]) -> tuple[np.ndarray, np.ndarray]:
     data_path = Path(data_path)
@@ -23,7 +23,9 @@ def load_mnist_test(data_path: Union[Path, str]) -> tuple[np.ndarray, np.ndarray
 
 def load_fmnist_test(data_path: Union[Path, str]) -> tuple[np.ndarray, np.ndarray]:
     data_path = Path(data_path)
-    x_test_fmnist, y_test_fmnist = zip(*FashionMNIST(data_path, train=False, download=True))
+    x_test_fmnist, y_test_fmnist = zip(
+        *FashionMNIST(data_path, train=False, download=True)
+    )
 
     x_test_fmnist = np.vstack([np.array(image).flatten() for image in x_test_fmnist])
     y_test_fmnist = np.array(y_test_fmnist)
@@ -33,7 +35,9 @@ def load_fmnist_test(data_path: Union[Path, str]) -> tuple[np.ndarray, np.ndarra
 
 def load_cifar10_test(data_path: Union[Path, str]) -> tuple[np.ndarray, np.ndarray]:
     data_path = Path(data_path)
-    x_test_cifar10, y_test_cifar10 = zip(*CIFAR10(data_path, train=False, download=True))
+    x_test_cifar10, y_test_cifar10 = zip(
+        *CIFAR10(data_path, train=False, download=True)
+    )
 
     x_test_cifar10 = np.vstack([np.array(image).flatten() for image in x_test_cifar10])
     y_test_cifar10 = np.array(y_test_cifar10)
@@ -47,25 +51,30 @@ def get_datasets_path() -> Path:
     if data_path is None:
         raise ValueError(
             "To run the small dataset tests, please provide a path where the datasets will be downloaded "
-            "via the DATA_PATH_HNNE environment variable.")
+            "via the DATA_PATH_HNNE environment variable."
+        )
 
     return Path(data_path)
 
 
 def default_seed_datapoints() -> np.ndarray:
-    seed_datapoints = np.array([
-        [0, 0],
-        [4, 0],
-        [12, 0.2],
-        [24, 0.4],
-        [-3, 3],
-        [-10, 8],
-        [-24, 12],
-        [-3, -3],
-        [-10, -8.1]
-    ])
+    seed_datapoints = np.array(
+        [
+            [0, 0],
+            [4, 0],
+            [12, 0.2],
+            [24, 0.4],
+            [-3, 3],
+            [-10, 8],
+            [-24, 12],
+            [-3, -3],
+            [-10, -8.1],
+        ]
+    )
 
-    seed_datapoints = (seed_datapoints - seed_datapoints.mean(axis=0)) / seed_datapoints.std(axis=0)
+    seed_datapoints = (
+        seed_datapoints - seed_datapoints.mean(axis=0)
+    ) / seed_datapoints.std(axis=0)
 
     return seed_datapoints
 
@@ -73,7 +82,7 @@ def default_seed_datapoints() -> np.ndarray:
 def generate_inception_graph_dataset(
     seed_datapoints: np.ndarray = default_seed_datapoints(),
     n_levels: int = 3,
-    shrinking_factor: float = 0.05
+    shrinking_factor: float = 0.05,
 ) -> list[np.ndarray]:
     """Using a small seed dataset which defines a simple nearest neighbor graph G, start expanding each node of G
     with a copy of itself in a scale which is so much smaller that the distances of the small copies are negligible
@@ -100,7 +109,9 @@ def generate_inception_graph_dataset(
     if n_levels < 1:
         raise ValueError(f"The number of levels should be at least 1, give {n_levels}.")
 
-    seed_datapoints = (seed_datapoints - seed_datapoints.mean(axis=0)) / seed_datapoints.std(axis=0)
+    seed_datapoints = (
+        seed_datapoints - seed_datapoints.mean(axis=0)
+    ) / seed_datapoints.std(axis=0)
 
     levels = [seed_datapoints]
     coefficient = shrinking_factor
@@ -108,9 +119,11 @@ def generate_inception_graph_dataset(
         last_level_points = levels[-1]
 
         # To get add all seed points to each last level point, we use numpy broadcasting.
-        next_level_points = ((coefficient*seed_datapoints)[None, ...] + last_level_points[:, None, :])
+        next_level_points = (coefficient * seed_datapoints)[
+            None, ...
+        ] + last_level_points[:, None, :]
         shape = next_level_points.shape
-        next_level_points = next_level_points.reshape((shape[0]*shape[1], shape[2]))
+        next_level_points = next_level_points.reshape((shape[0] * shape[1], shape[2]))
 
         levels.append(next_level_points)
         coefficient *= shrinking_factor
@@ -120,7 +133,10 @@ def generate_inception_graph_dataset(
 
 # SCORING
 
-def compute_accuracy(projection:np.ndarray, labels:np.ndarray, seed: int = 42) -> float:
+
+def compute_accuracy(
+    projection: np.ndarray, labels: np.ndarray, seed: int = 42
+) -> float:
     kf = StratifiedKFold(n_splits=5, shuffle=True, random_state=seed)
 
     accuracies = []
