@@ -18,7 +18,7 @@ def test_projector_inception_dataset():
     # Pick a small enough radius for consistency and the Euclidean distance to match the
     # real 2D coordinates.
     hnne = HNNE(radius=0.2, metric="euclidean")
-    _ = hnne.fit(inception_dataset)
+    _ = hnne.fit(inception_dataset, verbose=False)
 
     expected_partitions = np.stack(
         [
@@ -35,13 +35,35 @@ def test_projector_inception_dataset():
     )
 
 
-def test_projector_transforms():
+def test_projector_transform_yields_similar_results_to_fit_and_same_on_multiple_calls_on_random_dataset():
+    np.random.seed(42)
     dummy_data = np.random.uniform(size=(1000, 10))
 
-    hnne = HNNE()
+    hnne = HNNE(radius=0.2)
     projection_original = hnne.fit(dummy_data, verbose=False)
-    projection_new = hnne.transform(dummy_data)
+    projection_with_transform = hnne.transform(dummy_data)
+    second_projection_with_transform = hnne.transform(dummy_data)
 
-    assert np.min(np.linalg.norm(projection_new, axis=1)) < 2 * np.min(np.linalg.norm(projection_original, axis=1))
-    assert np.max(np.linalg.norm(projection_new, axis=1)) < 2 * np.max(np.linalg.norm(projection_original, axis=1))
-    assert np.quantile(np.linalg.norm(projection_new - projection_original, axis=1), .8) < 0.1
+    errors = np.linalg.norm(projection_with_transform - projection_original, axis=1)
+    relative_errors = errors / np.linalg.norm(projection_original, axis=1)
+
+    assert np.quantile(relative_errors, .85) == 0
+    assert np.quantile(relative_errors, .90) <= 0.15
+    assert np.quantile(relative_errors, .95) <= 2
+    np.testing.assert_array_equal(projection_with_transform, second_projection_with_transform)
+
+
+def test_projector_transform_yields_similar_results_to_fit_and_same_on_multiple_calls_on_the_inception_dataset():
+    levels = generate_inception_graph_dataset()
+    inception_dataset = levels[-1]
+
+    # Pick a small enough radius for consistency and the Euclidean distance to match the
+    # real 2D coordinates.
+    hnne = HNNE(radius=0.2, metric="euclidean")
+    projection_original = hnne.fit(inception_dataset, verbose=False)
+
+    projection_with_transform = hnne.transform(inception_dataset)
+    second_projection_with_transform = hnne.transform(inception_dataset)
+
+    np.testing.assert_almost_equal(projection_original, projection_with_transform)
+    np.testing.assert_array_equal(projection_with_transform, second_projection_with_transform)
