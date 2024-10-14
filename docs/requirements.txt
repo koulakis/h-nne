@@ -5,11 +5,12 @@ sphinxcontrib-htmlhelp
 sphinxcontrib-jsmath
 sphinxcontrib-qthelp
 sphinxcontrib-serializinghtml
-scipy
-numpy==1.20
-sklearn
-tqdm
+numba>=0.51.2
 pynndescent
+scipy
+numpy>=1.18
+scikit-learn
+tqdm
 typer
 pandas
 cython
