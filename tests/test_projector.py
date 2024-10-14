@@ -95,9 +95,9 @@ class TestHNNE(unittest.TestCase):
             projection = hnne.fit_transform(self.dummy_data_256)
             self.assertEqual(projection.shape, (self.dummy_data_256.shape[0], n))
 
-    @unittest.skip("Skipping till a random seed parameter is added to HNNE.")
     def test_reprojection_to_different_dimension(self):
-        hnne = HNNE(n_components=3)
+        random_state = 366
+        hnne = HNNE(n_components=3, random_state=random_state)
         projection = hnne.fit_transform(self.dummy_data_256)
         self.assertEqual(projection.shape, (self.dummy_data_256.shape[0], 3))
 
@@ -106,9 +106,9 @@ class TestHNNE(unittest.TestCase):
         )
         self.assertEqual(reprojection.shape, (self.dummy_data_256.shape[0], 5))
 
-        direct_projection_5_dims = HNNE(n_components=5).fit_transform(
-            self.dummy_data_256, verbose=True
-        )
+        direct_projection_5_dims = HNNE(
+            n_components=5, random_state=random_state
+        ).fit_transform(self.dummy_data_256, verbose=True)
         self.assertEqual(
             direct_projection_5_dims.shape, (self.dummy_data_256.shape[0], 5)
         )

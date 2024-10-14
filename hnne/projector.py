@@ -61,6 +61,9 @@ class HNNE(BaseEstimator):
         The preliminary embedding used to initiate h-nne. In terms of performance pca > pca_centroids > random_linear
         and in terms of speed performance pca < pca_centroids < random_linear.
 
+    random_state: Optional[str] (default None)
+        An optional random state for reproducibility purposes. It fixes the state of PCA and ANN.
+
     Attributes
     ----------
     min_size_top_level: int (default 3)
@@ -92,10 +95,12 @@ class HNNE(BaseEstimator):
         radius: float = 0.4,
         ann_threshold: int = 40000,
         preliminary_embedding: str = "pca",
+        random_state: Optional[int] = None,
     ):
         self.n_components = n_components
         self.radius = radius
         self.ann_threshold = ann_threshold
+        self.random_state = random_state
 
         try:
             preliminary_embedding = PreliminaryEmbedding[preliminary_embedding]
@@ -119,6 +124,7 @@ class HNNE(BaseEstimator):
             verbose=verbose,
             distance=self.metric,
             ann_threshold=self.ann_threshold,
+            random_state=self.random_state,
         )
 
         large_enough_partitions = np.argwhere(
@@ -216,6 +222,7 @@ class HNNE(BaseEstimator):
             dim=self.n_components,
             partition_sizes=partition_sizes,
             preliminary_embedding=self.preliminary_embedding,
+            random_state=self.random_state,
             verbose=verbose,
         )
 

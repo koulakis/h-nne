@@ -3,6 +3,7 @@
 # FINCH repository: https://github.com/ssarfraz/FINCH-Clustering                                                   #
 # Original script: https://github.com/ssarfraz/FINCH-Clustering/blob/master/python/finch.py                        #
 ####################################################################################################################
+from typing import Optional
 
 import numpy as np
 import scipy.sparse as sp
@@ -13,7 +14,12 @@ from hnne.cool_functions import cool_mean
 
 
 def clust_rank(
-    mat, initial_rank=None, metric="cosine", verbose=False, ann_threshold=40000
+    mat,
+    initial_rank=None,
+    metric="cosine",
+    verbose=False,
+    ann_threshold=40000,
+    random_state=None,
 ):
     knn_index = None
     s = mat.shape[0]
@@ -26,7 +32,13 @@ def clust_rank(
     else:
         if verbose:
             print("Using PyNNDescent to compute 1st-neighbours at this step ...")
-        knn_index = NNDescent(mat, n_neighbors=2, metric=metric, verbose=verbose)
+        knn_index = NNDescent(
+            mat,
+            n_neighbors=2,
+            metric=metric,
+            verbose=verbose,
+            random_state=random_state,
+        )
         result, orig_dist = knn_index.neighbor_graph
         initial_rank = result[:, 1]
         orig_dist[:, 0] = 1e12
@@ -88,12 +100,13 @@ def req_numclust(c, data, req_clust, distance):
 
 # noinspection PyPep8Naming
 def FINCH(
-    data,
-    initial_rank=None,
-    distance="cosine",
-    ensure_early_exit=True,
-    verbose=True,
-    ann_threshold=40000,
+    data: np.ndarray,
+    initial_rank: Optional[np.ndarray] = None,
+    distance: str = "cosine",
+    ensure_early_exit: bool = True,
+    verbose: bool = True,
+    ann_threshold: int = 40000,
+    random_state: Optional[int] = None,
 ):
     """FINCH clustering algorithm.
 
@@ -116,6 +129,9 @@ def FINCH(
 
         ann_threshold: int (default 40000)
             Data size threshold below which nearest neighbors are approximated with ANNs.
+
+        random_state: Optional[int] (default None)
+            An optional random state for reproducibility purposes. It fixes the state of ANN.
 
     Returns
     -------
@@ -147,7 +163,12 @@ def FINCH(
     min_sim = None
 
     adj, orig_dist, first_neighbors, _ = clust_rank(
-        data, initial_rank, distance, verbose=verbose, ann_threshold=ann_threshold
+        data,
+        initial_rank,
+        distance,
+        verbose=verbose,
+        ann_threshold=ann_threshold,
+        random_state=random_state,
     )
     initial_rank = None
 
@@ -170,7 +191,12 @@ def FINCH(
     partition_clustering = []
     while exit_clust > 1:
         adj, orig_dist, first_neighbors, knn_index = clust_rank(
-            mat, initial_rank, distance, verbose=verbose, ann_threshold=ann_threshold
+            mat,
+            initial_rank,
+            distance,
+            verbose=verbose,
+            ann_threshold=ann_threshold,
+            random_state=random_state,
         )
 
         u, num_clust_curr = get_clust(adj, orig_dist, min_sim)

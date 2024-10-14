@@ -42,7 +42,7 @@ setuptools.setup(
     tests_require=test_dependencies,
     extras_require={"test": test_dependencies},
     project_urls={
-        "Documentation": "https://hnne.readthedocs.io/en/latest/",
+        "Documentation": "https://hnne.readthedocs.io/en/latest",
         "Repository": "https://github.com/koulakis/h-nne",
         "Publication": "https://arxiv.org/abs/2203.12997",
     },

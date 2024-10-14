@@ -17,9 +17,15 @@ class PreliminaryEmbedding(str, Enum):
 
 
 def project_with_pca_centroids(
-    data, partitions, partition_sizes, dim=2, min_number_of_anchors=1000, verbose=False
+    data,
+    partitions,
+    partition_sizes,
+    dim=2,
+    min_number_of_anchors=1000,
+    random_state=None,
+    verbose=False,
 ):
-    pca = PCA(n_components=dim)
+    pca = PCA(n_components=dim, random_state=random_state)
     large_partitions = np.where(np.array(partition_sizes) > min_number_of_anchors)[0]
     partition_idx = large_partitions.max() if any(large_partitions) else 0
     if verbose:
@@ -31,8 +37,8 @@ def project_with_pca_centroids(
     return pca.transform(data), pca
 
 
-def project_with_pca(data, dim=2):
-    pca = PCA(n_components=dim)
+def project_with_pca(data, dim=2, random_state=None):
+    pca = PCA(n_components=dim, random_state=random_state)
     transformed_data = pca.fit_transform(data)
     return transformed_data, pca
 
@@ -43,6 +49,7 @@ def project_points(
     preliminary_embedding="pca",
     partition_sizes=None,
     partitions=None,
+    random_state=None,
     verbose=False,
 ):
     scaler = StandardScaler()
@@ -50,12 +57,20 @@ def project_points(
     pca = None
 
     if preliminary_embedding == PreliminaryEmbedding.pca:
-        projected_points, pca = project_with_pca(data, dim=dim)
+        projected_points, pca = project_with_pca(
+            data, dim=dim, random_state=random_state
+        )
     elif len(data) < dim or preliminary_embedding == PreliminaryEmbedding.pca_centroids:
         projected_points, pca = project_with_pca_centroids(
-            data, partitions, partition_sizes, dim=dim, verbose=verbose
+            data,
+            partitions,
+            partition_sizes,
+            dim=dim,
+            random_state=random_state,
+            verbose=verbose,
         )
     elif preliminary_embedding == PreliminaryEmbedding.random_linear:
+        np.random.seed(random_state)
         random_components = np.random.random((data.shape[1], dim))
         projected_points = np.dot(data, random_components)
     else:
@@ -125,6 +140,7 @@ def multi_step_projection(
     dim=2,
     partition_sizes=None,
     preliminary_embedding="pca",
+    random_state=None,
     verbose=False,
 ):
     projected_points, pca, scaler = project_points(
@@ -133,6 +149,7 @@ def multi_step_projection(
         preliminary_embedding=preliminary_embedding,
         partition_sizes=partition_sizes,
         partitions=partitions,
+        random_state=random_state,
         verbose=verbose,
     )
 
