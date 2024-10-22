@@ -16,12 +16,12 @@ A fast hierarchical dimensionality reduction algorithm.
 h-NNE is a general purpose dimensionality reduction algorithm such as t-SNE and UMAP. It stands out for its speed,
 simplicity and the fact that it provides a hierarchy of clusterings as part of its projection process. The algorithm is
 inspired by the FINCH_ clustering algorithm. For more information on the structure of the algorithm, please look at `our
-corresponding paper in ArXiv`__:
+corresponding paper in CVPR 2022`__:
 
   M. Saquib Sarfraz\*, Marios Koulakis\*, Constantin Seibold, Rainer Stiefelhagen.
   Hierarchical Nearest Neighbor Graph Embedding for Efficient Dimensionality Reduction. CVPR 2022.
 
-.. __: https://arxiv.org/abs/2203.12997
+.. __: https://openaccess.thecvf.com/content/CVPR2022/papers/Sarfraz_Hierarchical_Nearest_Neighbor_Graph_Embedding_for_Efficient_Dimensionality_Reduction_CVPR_2022_paper.pdf
 
 .. _FINCH: https://github.com/ssarfraz/FINCH-Clustering
 
@@ -45,6 +45,8 @@ The HNNE class implements the common methods of the sklearn interface.
 Simple projection example
 +++++++++++++++++++++++++
 
+Below a dataset of dimensionality 256 is projected to 2 dimensions.
+
 .. code:: python
 
   import numpy as np
@@ -52,12 +54,14 @@ Simple projection example
 
   data = np.random.random(size=(1000, 256))
 
-  hnne = HNNE(dim=2)
+  hnne = HNNE(n_components=2)
   projection = hnne.fit_transform(data)
 
 ++++++++++++++++++++++++++++
 Projecting on new points
 ++++++++++++++++++++++++++++
+
+Once a dataset has been projected, one can apply the transform and project new points to the same dimension.
 
 .. code:: python
 
