@@ -10,7 +10,7 @@ test_dependencies = ["pytest", "torchvision", "pre_commit"]
 
 setuptools.setup(
     name="hnne",
-    version="1.0.1",
+    version="1.0.2",
     author="Marios Koulakis, Saquib Sarfraz",
     author_email="marios.koulakis@gmail.com, saquibsarfraz@gmail.com",
     description="A fast hierarchical dimensionality reduction algorithm.",
@@ -19,12 +19,11 @@ setuptools.setup(
     packages=["hnne"],
     classifiers=[
         "Development Status :: 3 - Alpha",
-        "License :: Free for non-commercial use",
+        "License :: MIT License",
         "Operating System :: Unix",
         "Operating System :: MacOS",
-        "Programming Language :: Python :: 3.7",
-        "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
+        "Programming Language :: Python :: 3.10",
     ],
     keywords="dimension dimensionality reduction t-sne umap hierarchical clustering finch",
     install_requires=[
@@ -44,6 +43,6 @@ setuptools.setup(
     project_urls={
         "Documentation": "https://hnne.readthedocs.io/en/latest",
         "Repository": "https://github.com/koulakis/h-nne",
-        "Publication": "https://arxiv.org/abs/2203.12997",
+        "Publication": "https://openaccess.thecvf.com/content/CVPR2022/papers/Sarfraz_Hierarchical_Nearest_Neighbor_Graph_Embedding_for_Efficient_Dimensionality_Reduction_CVPR_2022_paper.pdf",  # noqa: E501
     },
 )

@@ -11,7 +11,6 @@ General guidelines
 
 Please make sure:
 
-- inform us github before starting work on a contribution
 - your code is clean and efficient
 - you use python typing
 - you test any new functionality
@@ -20,7 +19,7 @@ Please make sure:
 Codebase setup
 --------------
 
-Install the project locally it locally with:
+Install the project locally with:
 
 .. code-block:: python
 
@@ -31,7 +30,7 @@ This will install the project together with the requirements to run testing.
 Linting
 -------
 
-We use pre-commit to keep a consistent code style. To run it:
+We use pre-commit to keep a consistent coding style. To run it:
 
 .. code-block:: bash
 
@@ -60,6 +59,7 @@ To upload a version you need to have `twine` installed and access to the PiPy pr
 To upload a new version:
 
 - make sure you updated the version of the package in `setup.py` to the new one
+- also update the version in `docs/source/conf.py` for consistent documentation
 - ensure the code is merged in the `main` branch
 - create and push a new tag with the version number, e.g. for version 0.1.5:
 .. code-block:: bash

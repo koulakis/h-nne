@@ -151,12 +151,10 @@ def FINCH(
     ----------
         The code implements the FINCH algorithm described in our CVPR 2019 paper
         [1] Sarfraz et al. "Efficient Parameter-free Clustering Using First Neighbor Relations", CVPR2019
-             https://arxiv.org/abs/1902.11266
-        For academic purpose only. The code or its re-implementation should not be used for commercial use.
-        Please contact the author below for licensing information.
-        Copyright
-        M. Saquib Sarfraz (saquib.sarfraz@kit.edu)
-        Karlsruhe Institute of Technology (KIT)
+        https://openaccess.thecvf.com/content_CVPR_2019/papers/Sarfraz_Efficient_Parameter-Free_Clustering_Using_First_Neighbor_Relations_CVPR_2019_paper.pdf
+        Original code author:
+            M. Saquib Sarfraz (saquib.sarfraz@kit.edu)
+            Karlsruhe Institute of Technology (KIT)
     """
     data = data.astype(np.float32)
 

@@ -102,7 +102,7 @@ class TestHNNE(unittest.TestCase):
         self.assertEqual(projection.shape, (self.dummy_data_256.shape[0], 3))
 
         reprojection = hnne.fit_transform(
-            self.dummy_data_256, override_dim=5, verbose=True
+            self.dummy_data_256, override_n_components=5, verbose=True
         )
         self.assertEqual(reprojection.shape, (self.dummy_data_256.shape[0], 5))
 

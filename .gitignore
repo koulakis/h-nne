@@ -5,3 +5,6 @@ __pycache__
 *.tar.gz
 docs/build
 .pytest_cache
+*.bin.gz
+cifar-10-batches-py
+PyTorch_CIFAR10
