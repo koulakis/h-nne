@@ -64,7 +64,7 @@ To upload a new version:
 - create and push a new tag with the version number, e.g. for version 0.1.5:
 .. code-block:: bash
 
-    git tag 0.1.5.
+    git tag 0.1.5
     git push origin --tags
 - Create a source distribution:
 .. code-block:: bash
