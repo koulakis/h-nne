@@ -22,9 +22,8 @@ setuptools.setup(
         "License :: Free for non-commercial use",
         "Operating System :: Unix",
         "Operating System :: MacOS",
-        "Programming Language :: Python :: 3.7",
-        "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
+        "Programming Language :: Python :: 3.10",
     ],
     keywords="dimension dimensionality reduction t-sne umap hierarchical clustering finch",
     install_requires=[
@@ -44,6 +43,6 @@ setuptools.setup(
     project_urls={
         "Documentation": "https://hnne.readthedocs.io/en/latest",
         "Repository": "https://github.com/koulakis/h-nne",
-        "Publication": "https://arxiv.org/abs/2203.12997",
+        "Publication": "https://openaccess.thecvf.com/content/CVPR2022/papers/Sarfraz_Hierarchical_Nearest_Neighbor_Graph_Embedding_for_Efficient_Dimensionality_Reduction_CVPR_2022_paper.pdf",  # noqa: E501
     },
 )

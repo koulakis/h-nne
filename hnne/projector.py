@@ -79,7 +79,7 @@ class HNNE(BaseEstimator):
         The code implements the h-NNE algorithm described in our CVPR 2022 paper:
         [1] M. Saquib Sarfraz*, Marios Koulakis*, Constantin Seibold, Rainer Stiefelhagen.
         Hierarchical Nearest Neighbor Graph Embedding for Efficient Dimensionality Reduction. CVPR 2022.
-        https://arxiv.org/abs/2203.12997
+        https://openaccess.thecvf.com/content/CVPR2022/papers/Sarfraz_Hierarchical_Nearest_Neighbor_Graph_Embedding_for_Efficient_Dimensionality_Reduction_CVPR_2022_paper.pdf
 
         It is for academic purposes only. The code or its re-implementation should not be used for commercial use.
         Please contact the authors below for licensing information.
@@ -155,7 +155,7 @@ class HNNE(BaseEstimator):
         self,
         X: np.ndarray,
         y: np.ndarray = None,
-        override_dim: Optional[int] = None,
+        override_n_components: Optional[int] = None,
         verbose: bool = False,
         skip_hierarchy_building_if_done: bool = True,
     ):
@@ -170,7 +170,7 @@ class HNNE(BaseEstimator):
         y: array, shape (n_samples, )
             Ignored.
 
-        override_dim: Optional[int] (default None)
+        override_n_components: Optional[int] (default None)
             Argument used to overwrite the original dimension of the target space of the projection.
 
         verbose: bool (default False)
@@ -195,12 +195,14 @@ class HNNE(BaseEstimator):
                 X, verbose=verbose
             )
 
-        if (override_dim is not None) and (override_dim != self.n_components):
+        if (override_n_components is not None) and (
+            override_n_components != self.n_components
+        ):
             if verbose:
                 print(
-                    f"Overwriting the dimensions {self.n_components} to the new value {override_dim}."
+                    f"Overwriting the dimensions {self.n_components} to the new value {override_n_components}."
                 )
-            self.n_components = override_dim
+            self.n_components = override_n_components
 
         if verbose:
             print(f"Projecting to {self.n_components} dimensions...")
