@@ -6,6 +6,9 @@
     :target: https://hnne.readthedocs.io/en/latest/?badge=latest
     :alt: Documentation Status
 
+.. image:: https://static.pepy.tech/badge/hnne
+   :target: https://pepy.tech/projects/hnne
+   :alt: PyPI Downloads
 
 
 ==============================================
