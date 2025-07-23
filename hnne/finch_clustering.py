@@ -24,7 +24,7 @@ def clust_rank(
     knn_index = None
     s = mat.shape[0]
     if initial_rank is not None:
-        orig_dist = []
+        orig_dist = np.empty(shape=(1, 1))
     elif s <= ann_threshold:
         orig_dist = metrics.pairwise.pairwise_distances(mat, mat, metric=metric)
         np.fill_diagonal(orig_dist, 1e12)
