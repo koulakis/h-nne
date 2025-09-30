@@ -1,7 +1,6 @@
 import pickle
 from dataclasses import dataclass
-from typing import Any, List, Optional
-
+from typing import Any, List, Optional, Dict, Tuple
 import numpy as np
 from pynndescent import NNDescent
 from sklearn import metrics
@@ -16,6 +15,7 @@ from hnne.hierarchical_projection import PreliminaryEmbedding, multi_step_projec
 @dataclass
 class HierarchyParameters:
     partitions: np.ndarray
+    requested_partition: np.ndarray
     partition_sizes: np.ndarray
     partition_labels: np.ndarray
     lowest_level_centroids: np.ndarray
@@ -30,6 +30,7 @@ class ProjectionParameters:
     points_means: List[np.ndarray]
     points_max_radii: List[np.ndarray]
     inflation_params_list: List[Any]
+    v2_layout: Dict[Tuple[int, int], Tuple[float, ...]]
     knn_index_transform: Optional[Any]
 
 
@@ -61,8 +62,11 @@ class HNNE(BaseEstimator):
         The preliminary embedding used to initiate h-nne. In terms of performance pca > pca_centroids > random_linear
         and in terms of speed performance pca < pca_centroids < random_linear.
 
-    random_state: Optional[str] (default None)
+    random_state: Optional[int] (default None)
         An optional random state for reproducibility purposes. It fixes the state of PCA and ANN.
+    
+    prefered_num_clust: Optional[int] (default None)
+        preferred clusters view. set to number of ground truth classes or clusters in your data.
 
     Attributes
     ----------
@@ -81,11 +85,9 @@ class HNNE(BaseEstimator):
         Hierarchical Nearest Neighbor Graph Embedding for Efficient Dimensionality Reduction. CVPR 2022.
         https://openaccess.thecvf.com/content/CVPR2022/papers/Sarfraz_Hierarchical_Nearest_Neighbor_Graph_Embedding_for_Efficient_Dimensionality_Reduction_CVPR_2022_paper.pdf
 
-        It is for academic purposes only. The code or its re-implementation should not be used for commercial use.
         Please contact the authors below for licensing information.
         Marios Koulakis (marios.koulakis@gmail.com)
         M. Saquib Sarfraz (saquibsarfraz@gmail.com)
-        Karlsruhe Institute of Technology (KIT)
     """
 
     def __init__(
@@ -93,15 +95,24 @@ class HNNE(BaseEstimator):
         n_components: int = 2,
         metric: str = "cosine",
         radius: float = 0.4,
-        ann_threshold: int = 40000,
+        ann_threshold: int = 10000,
         preliminary_embedding: str = "pca",
         random_state: Optional[int] = None,
+        prefered_num_clust: Optional[int] = None,
+        hnne_v2: bool = True,
+        v2_k: int = 1,
+        v2_size_threshold: int = 100,
+        start_cluster_view: Optional[int] = 10
+        
     ):
         self.n_components = n_components
         self.radius = radius
         self.ann_threshold = ann_threshold
         self.random_state = random_state
-
+        self.prefered_num_clust = prefered_num_clust
+        self.v2 = hnne_v2
+        self.v2_size_threshold =  v2_size_threshold
+        self.start_cluster_view = start_cluster_view
         try:
             preliminary_embedding = PreliminaryEmbedding[preliminary_embedding]
         except KeyError:
@@ -109,6 +120,7 @@ class HNNE(BaseEstimator):
                 f"Invalid preliminary embedding: {preliminary_embedding}. "
                 f'Please select one from: {", ".join(PreliminaryEmbedding)}.'
             )
+           
         self.preliminary_embedding = preliminary_embedding
         self.metric = metric
         self.min_size_top_level: int = 3
@@ -118,8 +130,9 @@ class HNNE(BaseEstimator):
     def fit_only_hierarchy(self, X: np.ndarray, verbose: bool = False):
         if verbose:
             print("Building h-NNE hierarchy using FINCH...")
-        [partitions, partition_sizes, partition_labels, lowest_level_centroids] = FINCH(
+        [partitions, requested_partition, partition_sizes, partition_labels, lowest_level_centroids] = FINCH(
             data=X,
+            req_clust=self.prefered_num_clust,
             ensure_early_exit=False,
             verbose=verbose,
             distance=self.metric,
@@ -146,10 +159,10 @@ class HNNE(BaseEstimator):
         partition_labels = partition_labels[:max_partition_idx]
 
         self.hierarchy_parameters = HierarchyParameters(
-            partitions, partition_sizes, partition_labels, lowest_level_centroids
+            partitions, requested_partition, partition_sizes, partition_labels, lowest_level_centroids
         )
 
-        return partitions, partition_sizes, partition_labels
+        return partitions, requested_partition, partition_sizes, partition_labels
 
     def fit(
         self,
@@ -184,14 +197,15 @@ class HNNE(BaseEstimator):
             if verbose:
                 print("Skipping the hierarchy construction as it is already available.")
             hparams = self.hierarchy_parameters
-            partitions, partition_sizes, partition_labels = (
+            partitions,requested_partition, partition_sizes, partition_labels = (
                 hparams.partitions,
+                hparams.requested_partition,
                 hparams.partition_sizes,
                 hparams.partition_labels,
             )
 
         else:
-            [partitions, partition_sizes, partition_labels] = self.fit_only_hierarchy(
+            [partitions, requested_partition, partition_sizes, partition_labels] = self.fit_only_hierarchy(
                 X, verbose=verbose
             )
 
@@ -215,6 +229,7 @@ class HNNE(BaseEstimator):
             points_means,
             points_max_radii,
             inflation_params_list,
+            v2_layout
         ] = multi_step_projection(
             data=X,
             partitions=partitions,
@@ -224,6 +239,11 @@ class HNNE(BaseEstimator):
             dim=self.n_components,
             partition_sizes=partition_sizes,
             preliminary_embedding=self.preliminary_embedding,
+            prefered_num_clust=self.prefered_num_clust,
+            requested_partition=requested_partition,
+            v2=self.v2,
+            v2_size_threshold=self.v2_size_threshold,
+            start_cluster_view=self.start_cluster_view,
             random_state=self.random_state,
             verbose=verbose,
         )
@@ -236,6 +256,7 @@ class HNNE(BaseEstimator):
             points_means=points_means,
             points_max_radii=points_max_radii,
             inflation_params_list=inflation_params_list,
+            v2_layout=v2_layout,
             knn_index_transform=None,
         )
 
