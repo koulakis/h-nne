@@ -1,5 +1,5 @@
 ####################################################################################################################
-# Code adapted with few changes from the FINCH clustering algorithm to generate the levels of the h-NNE hierarchy. #
+# Code adapted with minor changes from the FINCH clustering algorithm to generate the levels of the h-NNE hierarchy. #
 # FINCH repository: https://github.com/ssarfraz/FINCH-Clustering                                                   #
 # Original script: https://github.com/ssarfraz/FINCH-Clustering/blob/master/python/finch.py                        #
 ####################################################################################################################
@@ -24,7 +24,7 @@ def clust_rank(
     knn_index = None
     s = mat.shape[0]
     if initial_rank is not None:
-        orig_dist = []
+        orig_dist = np.empty(shape=(1, 1))
     elif s <= ann_threshold:
         orig_dist = metrics.pairwise.pairwise_distances(mat, mat, metric=metric)
         np.fill_diagonal(orig_dist, 1e12)
@@ -87,20 +87,20 @@ def update_adj(adj, d):
     return a
 
 
-def req_numclust(c, data, req_clust, distance):
+def req_numclust(c, data, req_clust, distance, use_ann_above_samples, verbose):
     iter_ = len(np.unique(c)) - req_clust
     c_, mat = get_merge([], c, data)
     for i in range(iter_):
-        adj, orig_dist, _, _ = clust_rank(mat, initial_rank=None, metric=distance)
+        adj, orig_dist, _, _ = clust_rank(mat, initial_rank=None, ann_threshold=use_ann_above_samples, metric=distance, verbose=verbose)
         adj = update_adj(adj, orig_dist)
         u, _ = get_clust(adj, [], min_sim=None)
         c_, mat = get_merge(c_, u, data)
     return c_
 
-
 # noinspection PyPep8Naming
 def FINCH(
     data: np.ndarray,
+    req_clust: Optional[int] = None,
     initial_rank: Optional[np.ndarray] = None,
     distance: str = "cosine",
     ensure_early_exit: bool = True,
@@ -114,6 +114,8 @@ def FINCH(
     ----------
         data: array, shape (n_samples, n_features)
             Input matrix with features in rows.
+        
+        req_clust: Set output number of clusters (optional).
 
         initial_rank: array, shape (n_samples, 1) (optional)
             First integer neighbor indices.
@@ -153,8 +155,7 @@ def FINCH(
         [1] Sarfraz et al. "Efficient Parameter-free Clustering Using First Neighbor Relations", CVPR2019
         https://openaccess.thecvf.com/content_CVPR_2019/papers/Sarfraz_Efficient_Parameter-Free_Clustering_Using_First_Neighbor_Relations_CVPR_2019_paper.pdf
         Original code author:
-            M. Saquib Sarfraz (saquib.sarfraz@kit.edu)
-            Karlsruhe Institute of Technology (KIT)
+            M. Saquib Sarfraz (saquibsarfraz@gmail.com)
     """
     data = data.astype(np.float32)
 
@@ -215,5 +216,18 @@ def FINCH(
         if verbose:
             print("Level {}: {} clusters".format(k, num_clust[k]))
         k += 1
-
-    return c, num_clust, partition_clustering, lowest_level_centroids
+    
+    if req_clust is not None:
+        if req_clust not in num_clust:
+            if req_clust > num_clust[0]:
+                print(f'requested number of clusters are larger than FINCH first partition with {num_clust[0]} clusters . Returning {num_clust[0]} clusters')
+                requested_c = c[:, 0]
+            
+            else:
+                ind = [i for i, v in enumerate(num_clust) if v >= req_clust]
+                requested_c = req_numclust(c[:, ind[-1]], data, req_clust, distance, ann_threshold, verbose)
+            
+    else:
+        requested_c = None
+    return c, requested_c, num_clust, partition_clustering, lowest_level_centroids
+    
