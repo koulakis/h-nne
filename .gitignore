@@ -8,3 +8,4 @@ docs/build
 *.bin.gz
 cifar-10-batches-py
 PyTorch_CIFAR10
+/hnne_datasets/
