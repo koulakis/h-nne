@@ -3,6 +3,7 @@ __pycache__
 .ipynb_checkpoints
 *egg-info
 *.tar.gz
+.DS_Store
 docs/build
 .pytest_cache
 *.bin.gz
