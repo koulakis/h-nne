@@ -676,7 +676,6 @@ def pack_circles_from_anchors_2d_spacefill_k(
         
                 
         # Normalize top-level span (compact, tiny gap)    
-        #start = time.time()
         if post_normalize:
             P = _normalize_top_level_span_2d(P, r, k=8, beta=1.25, gap_frac=0.01, n_threshold_allpairs=1000)
     return P
@@ -706,13 +705,13 @@ def _pack_children_inside_parent_dense_2d(
     if P_local.shape[0] != m:
         P_local = np.resize(P_local, (m, 2))
   
-    # 2) robust fit of centers only (no radius scaling)                         
+    # 2) robust fit of childeren                         
     P_fit, r_local = _fit_children_inside_parent_nd(P_local, r_local, parent_center, parent_radius, fill_frac=0.99)
     
     
     P_rel = P_fit - parent_center   
 
-    P_rel, r_local = _inflate_radii_balloon(P_rel, r_local, parent_radius, rate=0.25, steps=5)  #pair_gap=0.01*np.median(r_local)
+    P_rel, r_local = _inflate_radii_balloon(P_rel, r_local, parent_radius, rate=0.25, steps=5) 
     P_rel = _normalize_top_level_span_2d(P_rel, r_local, k=5, beta=1.25, gap_frac=0.01, n_threshold_allpairs=1000)
     
     if P_rel.ndim == 1:

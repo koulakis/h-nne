@@ -100,6 +100,7 @@ class HNNE(BaseEstimator):
         random_state: Optional[int] = None,
         prefered_num_clust: Optional[int] = None,
         hnne_v2: bool = True,
+        v1_behaviour: bool = False,
         v2_k: int = 1,
         v2_size_threshold: int = 100,
         start_cluster_view: Optional[int] = 10
@@ -111,6 +112,7 @@ class HNNE(BaseEstimator):
         self.random_state = random_state
         self.prefered_num_clust = prefered_num_clust
         self.v2 = hnne_v2
+        self.v1_behaviour = v1_behaviour
         self.v2_size_threshold =  v2_size_threshold
         self.start_cluster_view = start_cluster_view
         try:
@@ -229,7 +231,8 @@ class HNNE(BaseEstimator):
             points_means,
             points_max_radii,
             inflation_params_list,
-            v2_layout
+            v2_layout,
+            time_elapsed
         ] = multi_step_projection(
             data=X,
             partitions=partitions,
@@ -242,6 +245,7 @@ class HNNE(BaseEstimator):
             prefered_num_clust=self.prefered_num_clust,
             requested_partition=requested_partition,
             v2=self.v2,
+            v1_behaviour = self.v1_behaviour,
             v2_size_threshold=self.v2_size_threshold,
             start_cluster_view=self.start_cluster_view,
             random_state=self.random_state,

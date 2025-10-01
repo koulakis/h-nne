@@ -162,7 +162,7 @@ def dataset_loaders(dataset_group):
 
 
 validation_1nn = [1]
-validation_ranges_small = [1, 10, 20, 40]
+validation_ranges_small = [1, 3, 5, 10]
 validation_ranges_large = [100, 200]
 
 dataset_validation_knn_values = {
