@@ -1,6 +1,6 @@
 import numpy as np
 
-from hnne.cool_functions import cool_normalize
+from hnne_v2.cool_functions import cool_normalize
 
 
 def norm_angle(data, theta, partition):

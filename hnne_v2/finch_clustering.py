@@ -10,7 +10,7 @@ import scipy.sparse as sp
 from pynndescent import NNDescent
 from sklearn import metrics
 
-from hnne.cool_functions import cool_mean
+from hnne_v2.cool_functions import cool_mean
 
 
 def clust_rank(
@@ -91,11 +91,18 @@ def req_numclust(c, data, req_clust, distance, use_ann_above_samples, verbose):
     iter_ = len(np.unique(c)) - req_clust
     c_, mat = get_merge([], c, data)
     for i in range(iter_):
-        adj, orig_dist, _, _ = clust_rank(mat, initial_rank=None, ann_threshold=use_ann_above_samples, metric=distance, verbose=verbose)
+        adj, orig_dist, _, _ = clust_rank(
+            mat,
+            initial_rank=None,
+            ann_threshold=use_ann_above_samples,
+            metric=distance,
+            verbose=verbose,
+        )
         adj = update_adj(adj, orig_dist)
         u, _ = get_clust(adj, [], min_sim=None)
         c_, mat = get_merge(c_, u, data)
     return c_
+
 
 # noinspection PyPep8Naming
 def FINCH(
@@ -114,7 +121,7 @@ def FINCH(
     ----------
         data: array, shape (n_samples, n_features)
             Input matrix with features in rows.
-        
+
         req_clust: Set output number of clusters (optional).
 
         initial_rank: array, shape (n_samples, 1) (optional)
@@ -216,18 +223,21 @@ def FINCH(
         if verbose:
             print("Level {}: {} clusters".format(k, num_clust[k]))
         k += 1
-    
+
     if req_clust is not None:
         if req_clust not in num_clust:
             if req_clust > num_clust[0]:
-                print(f'requested number of clusters are larger than FINCH first partition with {num_clust[0]} clusters . Returning {num_clust[0]} clusters')
+                print(
+                    f"requested number of clusters are larger than FINCH first partition with {num_clust[0]} clusters . Returning {num_clust[0]} clusters"
+                )
                 requested_c = c[:, 0]
-            
+
             else:
                 ind = [i for i, v in enumerate(num_clust) if v >= req_clust]
-                requested_c = req_numclust(c[:, ind[-1]], data, req_clust, distance, ann_threshold, verbose)
-            
+                requested_c = req_numclust(
+                    c[:, ind[-1]], data, req_clust, distance, ann_threshold, verbose
+                )
+
     else:
         requested_c = None
     return c, requested_c, num_clust, partition_clustering, lowest_level_centroids
-    

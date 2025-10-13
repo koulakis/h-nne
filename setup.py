@@ -9,14 +9,15 @@ test_dependencies = ["pytest", "torchvision", "pre_commit"]
 
 
 setuptools.setup(
-    name="hnne",
+    name="hnne_v2",
     version="1.0.2",
     author="Marios Koulakis, Saquib Sarfraz",
     author_email="marios.koulakis@gmail.com, saquibsarfraz@gmail.com",
     description="A fast hierarchical dimensionality reduction algorithm.",
     long_description=long_description,
     long_description_content_type="text/x-rst",
-    packages=["hnne"],
+    packages=["hnne_v2", "benchmarking"],
+    # package_dir={"hnne_benchmarking": "benchmarking"},
     classifiers=[
         "Development Status :: 3 - Alpha",
         "License :: OSI Approved :: MIT License",

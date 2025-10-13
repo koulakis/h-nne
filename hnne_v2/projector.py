@@ -1,6 +1,7 @@
 import pickle
 from dataclasses import dataclass
-from typing import Any, List, Optional, Dict, Tuple
+from typing import Any, Dict, List, Optional, Tuple
+
 import numpy as np
 from pynndescent import NNDescent
 from sklearn import metrics
@@ -8,8 +9,8 @@ from sklearn.base import BaseEstimator
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
 
-from hnne.finch_clustering import FINCH
-from hnne.hierarchical_projection import PreliminaryEmbedding, multi_step_projection
+from hnne_v2.finch_clustering import FINCH
+from hnne_v2.hierarchical_projection import PreliminaryEmbedding, multi_step_projection
 
 
 @dataclass
@@ -64,7 +65,7 @@ class HNNE(BaseEstimator):
 
     random_state: Optional[int] (default None)
         An optional random state for reproducibility purposes. It fixes the state of PCA and ANN.
-    
+
     prefered_num_clust: Optional[int] (default None)
         preferred clusters view. set to number of ground truth classes or clusters in your data.
 
@@ -102,8 +103,7 @@ class HNNE(BaseEstimator):
         hnne_v2: bool = True,
         v2_k: int = 1,
         v2_size_threshold: int = 100,
-        start_cluster_view: Optional[int] = 10
-        
+        start_cluster_view: Optional[int] = 10,
     ):
         self.n_components = n_components
         self.radius = radius
@@ -111,7 +111,7 @@ class HNNE(BaseEstimator):
         self.random_state = random_state
         self.prefered_num_clust = prefered_num_clust
         self.v2 = hnne_v2
-        self.v2_size_threshold =  v2_size_threshold
+        self.v2_size_threshold = v2_size_threshold
         self.start_cluster_view = start_cluster_view
         try:
             preliminary_embedding = PreliminaryEmbedding[preliminary_embedding]
@@ -120,7 +120,7 @@ class HNNE(BaseEstimator):
                 f"Invalid preliminary embedding: {preliminary_embedding}. "
                 f'Please select one from: {", ".join(PreliminaryEmbedding)}.'
             )
-           
+
         self.preliminary_embedding = preliminary_embedding
         self.metric = metric
         self.min_size_top_level: int = 3
@@ -130,7 +130,13 @@ class HNNE(BaseEstimator):
     def fit_only_hierarchy(self, X: np.ndarray, verbose: bool = False):
         if verbose:
             print("Building h-NNE hierarchy using FINCH...")
-        [partitions, requested_partition, partition_sizes, partition_labels, lowest_level_centroids] = FINCH(
+        [
+            partitions,
+            requested_partition,
+            partition_sizes,
+            partition_labels,
+            lowest_level_centroids,
+        ] = FINCH(
             data=X,
             req_clust=self.prefered_num_clust,
             ensure_early_exit=False,
@@ -159,7 +165,11 @@ class HNNE(BaseEstimator):
         partition_labels = partition_labels[:max_partition_idx]
 
         self.hierarchy_parameters = HierarchyParameters(
-            partitions, requested_partition, partition_sizes, partition_labels, lowest_level_centroids
+            partitions,
+            requested_partition,
+            partition_sizes,
+            partition_labels,
+            lowest_level_centroids,
         )
 
         return partitions, requested_partition, partition_sizes, partition_labels
@@ -197,7 +207,7 @@ class HNNE(BaseEstimator):
             if verbose:
                 print("Skipping the hierarchy construction as it is already available.")
             hparams = self.hierarchy_parameters
-            partitions,requested_partition, partition_sizes, partition_labels = (
+            partitions, requested_partition, partition_sizes, partition_labels = (
                 hparams.partitions,
                 hparams.requested_partition,
                 hparams.partition_sizes,
@@ -205,8 +215,8 @@ class HNNE(BaseEstimator):
             )
 
         else:
-            [partitions, requested_partition, partition_sizes, partition_labels] = self.fit_only_hierarchy(
-                X, verbose=verbose
+            [partitions, requested_partition, partition_sizes, partition_labels] = (
+                self.fit_only_hierarchy(X, verbose=verbose)
             )
 
         if (override_n_components is not None) and (
@@ -229,7 +239,8 @@ class HNNE(BaseEstimator):
             points_means,
             points_max_radii,
             inflation_params_list,
-            v2_layout
+            v2_layout,
+            time_elapsed,
         ] = multi_step_projection(
             data=X,
             partitions=partitions,

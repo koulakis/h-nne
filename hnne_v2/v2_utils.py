@@ -1,22 +1,26 @@
-from math import sqrt, pi, log2
+from math import log2, pi, sqrt
+from typing import Dict, List, Optional, Sequence, Tuple, Union
+
 import numpy as np
-from hnne.cool_functions import cool_max_radius, cool_max, cool_mean
-from typing import List, Dict, Tuple, Optional, Sequence, Union
+
+from hnne_v2.cool_functions import cool_max, cool_max_radius, cool_mean
 
 
-#-----  v2 utilities  ------#
+# -----  v2 utilities  ------#
 def rescale_layout(
-    layout: Dict[Tuple[int,int], Tuple[float, ...]],
-    target_top_median: float = 1.0
-) -> Dict[Tuple[int,int], Tuple[float, ...]]:
+    layout: Dict[Tuple[int, int], Tuple[float, ...]], target_top_median: float = 1.0
+) -> Dict[Tuple[int, int], Tuple[float, ...]]:
     """Uniformly scale all coordinates/radii so median top radius = target."""
     levels = [lvl for (lvl, _) in layout.keys()]
-    if not levels: return dict(layout)
+    if not levels:
+        return dict(layout)
     top = max(levels)
     top_r = [layout[(lvl, lab)][-1] for (lvl, lab) in layout.keys() if lvl == top]
-    if not top_r: return dict(layout)
+    if not top_r:
+        return dict(layout)
     med_r = float(np.median(top_r))
-    if med_r <= 0: return dict(layout)
+    if med_r <= 0:
+        return dict(layout)
     s = target_top_median / med_r
     out = {}
     for k, vals in layout.items():
@@ -25,6 +29,7 @@ def rescale_layout(
         out[k] = tuple(coords.tolist() + [r])
     return out
 
+
 def layout_to_level_arrays(
     layout: Dict[Tuple[int, int], Tuple[float, ...]],
     levels: Sequence[int] | None = None,
@@ -32,7 +37,7 @@ def layout_to_level_arrays(
     return_labels: bool = False,
 ) -> Union[
     Tuple[List[np.ndarray], List[np.ndarray]],
-    Tuple[List[np.ndarray], List[np.ndarray], List[np.ndarray]]
+    Tuple[List[np.ndarray], List[np.ndarray], List[np.ndarray]],
 ]:
     """
     Convert a layout dict {(level, label): (*coords, r)} into per-level arrays.
@@ -62,7 +67,9 @@ def layout_to_level_arrays(
         return ([], [], []) if return_labels else ([], [])
 
     # collect levels
-    all_levels = sorted({lvl for (lvl, _) in layout.keys()}) if levels is None else list(levels)
+    all_levels = (
+        sorted({lvl for (lvl, _) in layout.keys()}) if levels is None else list(levels)
+    )
 
     anchors_list: List[np.ndarray] = []
     radii_list: List[np.ndarray] = []
@@ -70,7 +77,11 @@ def layout_to_level_arrays(
 
     for lvl in all_levels:
         # pull items for this level
-        items = [(lab, layout[(lvl, lab)]) for (L, lab) in layout.keys() if L == lvl and (lvl, lab) in layout]
+        items = [
+            (lab, layout[(lvl, lab)])
+            for (L, lab) in layout.keys()
+            if L == lvl and (lvl, lab) in layout
+        ]
         if not items:
             # empty level (allowed if user passed explicit `levels`)
             if return_labels:
@@ -103,17 +114,23 @@ def layout_to_level_arrays(
         if return_labels:
             labels_list.append(labs)
 
-    return (anchors_list, radii_list, labels_list) if return_labels else (anchors_list, radii_list)
+    return (
+        (anchors_list, radii_list, labels_list)
+        if return_labels
+        else (anchors_list, radii_list)
+    )
 
-#---------------Robust scaling for move_projected_points-------#
-#Robust per-parent scale instead of plain max
 
-def rubust_scale_per_parent(points_centered: np.ndarray,          # (N,D),
-                            partition: np.ndarray,                # parent partition labels (N, 1)
-                            sigma_mult=2.5,                       # per-parent scale = mean + sigma_mult * std
-                            gamma=0.9                             # radial power warp (<1 spreads mid-radii; 1.0 disables)
-                           ):
+# ---------------Robust scaling for move_projected_points-------#
+# Robust per-parent scale instead of plain max
 
+
+def rubust_scale_per_parent(
+    points_centered: np.ndarray,  # (N,D),
+    partition: np.ndarray,  # parent partition labels (N, 1)
+    sigma_mult=2.5,  # per-parent scale = mean + sigma_mult * std
+    gamma=0.9,  # radial power warp (<1 spreads mid-radii; 1.0 disables)
+):
     """
     -   per-parent scale uses mean + λ·std of
         ||points - parent_mean|| instead of max, capped by the true max. This
@@ -121,35 +138,34 @@ def rubust_scale_per_parent(points_centered: np.ndarray,          # (N,D),
       - Optional radial power warp `gamma<1` spreads typical points a bit to
         better fill large parents while keeping outliers bounded.
     """
-    #print(f'runnig robust scaling')
+    # print(f'runnig robust scaling')
     # per-point norms
     norms = np.linalg.norm(points_centered, axis=1)  # (n,)
 
     # per-parent mean and mean of squares -> std (fast with cool_mean)
-    mu   = cool_mean(norms[:, None], partition).ravel()             # (k,)
-    mu2  = cool_mean((norms**2)[:, None], partition).ravel()        # (k,)
-    var  = np.maximum(mu2 - mu**2, 0.0)
-    std  = np.sqrt(var)
+    mu = cool_mean(norms[:, None], partition).ravel()  # (k,)
+    mu2 = cool_mean((norms**2)[:, None], partition).ravel()  # (k,)
+    var = np.maximum(mu2 - mu**2, 0.0)
+    std = np.sqrt(var)
 
     # robust scale: mean + λ * std, then cap by true max so we never expand
     # beyond the farthest member in the parent
-    r_max = cool_max(norms, partition)                      # (k,)
-    robust = mu + sigma_mult * std                          # (k,)
-    denom = np.minimum(robust, r_max)                       # (k,)
-    denom = np.where(denom <= 1e-12, 1.0, denom)            # avoid 0
+    r_max = cool_max(norms, partition)  # (k,)
+    robust = mu + sigma_mult * std  # (k,)
+    denom = np.minimum(robust, r_max)  # (k,)
+    denom = np.where(denom <= 1e-12, 1.0, denom)  # avoid 0
 
     # per-point denominator
-    denom_pp = denom[partition][:, None]                    # (n,1)
+    denom_pp = denom[partition][:, None]  # (n,1)
 
     # radial power warp (gamma < 1 spreads mid-radii)
-    rho  = np.linalg.norm(points_centered, axis=1, keepdims=True) / denom_pp
-    rho  = np.clip(rho, 0.0, 1.0)                           # stay in [0,1]
+    rho = np.linalg.norm(points_centered, axis=1, keepdims=True) / denom_pp
+    rho = np.clip(rho, 0.0, 1.0)  # stay in [0,1]
     unit = points_centered / np.maximum(
-            np.linalg.norm(points_centered, axis=1, keepdims=True), 1e-12
-        )
-    pts_scaled = unit * (rho ** gamma)                      # (n,2)
+        np.linalg.norm(points_centered, axis=1, keepdims=True), 1e-12
+    )
+    pts_scaled = unit * (rho**gamma)  # (n,2)
     return pts_scaled
-
 
 
 def partition_update(c, idx, req_c, num_clust, partition_clustering):
@@ -161,18 +177,21 @@ def partition_update(c, idx, req_c, num_clust, partition_clustering):
         partition_clustering[idx] = ig[ig_]
 
     _, ig = np.unique(req_c, return_inverse=True)
-    u, ig_ = np.unique(c[:, idx -1], return_index=True)
-    partition_clustering[idx - 1] = ig[ig_]  
+    u, ig_ = np.unique(c[:, idx - 1], return_index=True)
+    partition_clustering[idx - 1] = ig[ig_]
 
     c[:, idx] = req_c
     num_clust[idx] = len(np.unique(req_c))
     return c, num_clust, partition_clustering
-    
-#-------------------#######--------------------------------------------------------------------------#
-#-----  optional utilities  ------#
 
 
-def generate_hierarchical_labels(N, levels, top_cluster_sizes, min_children=3, max_children=8, seed=None):
+# -------------------#######--------------------------------------------------------------------------#
+# -----  optional utilities  ------#
+
+
+def generate_hierarchical_labels(
+    N, levels, top_cluster_sizes, min_children=3, max_children=8, seed=None
+):
     """
     Generate a (N, levels) cluster label matrix with variable branching per cluster.
 
@@ -186,8 +205,9 @@ def generate_hierarchical_labels(N, levels, top_cluster_sizes, min_children=3, m
     Returns:
     - c: (N, levels) integer array of hierarchical cluster labels
     """
+
     def get_partiton_labels(partitions):
-        partition_labels=[]
+        partition_labels = []
         partition_sizes = []
         for partition in range(partitions.shape[1] - 1):
             _, ig = np.unique(partitions[:, partition + 1], return_inverse=True)
@@ -195,8 +215,10 @@ def generate_hierarchical_labels(N, levels, top_cluster_sizes, min_children=3, m
             partition_labels.append(ig[ig_])
             partition_sizes.append(len(u))
         num_top_level = len(np.unique(partitions[:, -1]))
-        return partition_labels + [np.zeros(num_top_level)], partition_sizes + [num_top_level]
-    
+        return partition_labels + [np.zeros(num_top_level)], partition_sizes + [
+            num_top_level
+        ]
+
     if seed is not None:
         np.random.seed(seed)
 
@@ -205,29 +227,36 @@ def generate_hierarchical_labels(N, levels, top_cluster_sizes, min_children=3, m
 
     # Step 1: Top level cluster assignment
     top_cluster_counts = (np.array(top_cluster_sizes) * N).astype(int)
-    top_cluster_counts[-1] = N - top_cluster_counts[:-1].sum()  # Adjust last to ensure sum = N
+    top_cluster_counts[-1] = (
+        N - top_cluster_counts[:-1].sum()
+    )  # Adjust last to ensure sum = N
     top_labels = []
     offset = 0
     for cluster_id, count in enumerate(top_cluster_counts):
-        c[offset:offset+count, -1] = cluster_id
-        top_labels.append((cluster_id, np.arange(offset, offset+count)))
+        c[offset : offset + count, -1] = cluster_id
+        top_labels.append((cluster_id, np.arange(offset, offset + count)))
         offset += count
 
     # Step 2: For each level from top to bottom, recursively split each cluster
     label_counter = {level: {} for level in range(levels)}
-    label_counter[levels - 1] = {cid: np.where(c[:, levels - 1] == cid)[0] for cid in range(len(top_cluster_sizes))}
+    label_counter[levels - 1] = {
+        cid: np.where(c[:, levels - 1] == cid)[0]
+        for cid in range(len(top_cluster_sizes))
+    }
     next_cluster_id = 0
 
     for level in reversed(range(levels - 1)):
         label_counter[level] = {}
         for parent_id, indices in label_counter[level + 1].items():
             num_children = np.random.randint(min_children, max_children + 1)
-            child_sizes = np.random.multinomial(len(indices), np.random.dirichlet(np.ones(num_children)))
+            child_sizes = np.random.multinomial(
+                len(indices), np.random.dirichlet(np.ones(num_children))
+            )
             start = 0
             for i, size in enumerate(child_sizes):
                 if size == 0:
                     continue
-                child_indices = indices[start:start+size]
+                child_indices = indices[start : start + size]
                 child_id = next_cluster_id
                 c[child_indices, level] = child_id
                 label_counter[level][child_id] = child_indices
@@ -241,7 +270,8 @@ def generate_hierarchical_labels(N, levels, top_cluster_sizes, min_children=3, m
         partitions[:, col] = ig
     return partitions, partition_sizes, partition_labels
 
-#-----------------------------
+
+# -----------------------------
 def format_time(seconds):
     """Format a duration in seconds into hr:min:sec or ms."""
     if seconds < 1:
@@ -255,6 +285,7 @@ def format_time(seconds):
         return f"{m}m {s}s"
     else:
         return f"{s}s"
+
 
 def format_count(n):
     """Format large sample counts into readable form."""
