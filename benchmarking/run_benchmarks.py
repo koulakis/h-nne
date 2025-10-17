@@ -19,7 +19,7 @@ def run_eval(
         n_components: int = 2,
         distance="cosine",
         radius: float = 0.4,
-        ann_threshold = 20000,
+        ann_threshold = 10_000,
         preliminary_embedding="pca",
         validate_only_1nn: bool = True,     
         compute_trustworthiness: bool = True,
@@ -28,11 +28,9 @@ def run_eval(
     
         # hnne v2 params
         prefered_num_clust= None,
-        hnne_v2=True,
-        v1_behaviour=False,
-        v2_k: int = 1,
-        start_cluster_view: int = 10,
-        v2_size_threshold: int = 100,
+        hnne_version= "v2",
+        start_cluster_view: int = 'auto',
+        v2_size_threshold: int = None,
         
         # save params
         plot_projection: bool = True,
@@ -89,10 +87,8 @@ def run_eval(
                 ann_threshold = ann_threshold,
                 preliminary_embedding=preliminary_embedding,
                 random_state=random_state,
-                prefered_num_clust= prefered_num_clust,
-                hnne_v2=hnne_v2,
-                v1_behaviour=v1_behaviour,
-                v2_k=v2_k,
+                prefered_num_clust=prefered_num_clust,
+                hnne_version=hnne_version,
                 v2_size_threshold=v2_size_threshold,
                 start_cluster_view=start_cluster_view
             )

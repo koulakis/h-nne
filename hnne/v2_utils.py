@@ -1,7 +1,19 @@
 from math import sqrt, pi, log2
 import numpy as np
 from hnne.cool_functions import cool_max_radius, cool_max, cool_mean
-from typing import List, Dict, Tuple, Optional, Sequence, Union
+from typing import List, Dict, Tuple, Optional, Sequence, Union, Literal
+
+
+HNNEVersion = Literal["v1", "v2", "version_1", "version_2", "1", "2", "auto"]
+
+def _normalize_hnne_version(hnne_version: HNNEVersion = "version_2") -> Literal["v1", "v2"]:
+    v = str(hnne_version).lower().strip()
+    if v in {"v2", "version_2", "2", "auto"}:
+        return "v2"
+    if v in {"v1", "version_1", "1"}:
+        return "v1"
+    # Fallback: prefer v2
+    return "v2"
 
 
 #-----  v2 utilities  ------#
@@ -169,6 +181,131 @@ def partition_update(c, idx, req_c, num_clust, partition_clustering):
     return c, num_clust, partition_clustering
     
 #-------------------#######--------------------------------------------------------------------------#
+##------------ Policy for v2 auto level selection ------------------------------------##
+
+def _nearest_level_geq_coarsest(sizes: np.ndarray, target: int) -> int:
+    """
+    Return the *coarsest* index i (largest i) with sizes[i] >= target.
+    If none exist (all < target), fall back to the index with the nearest size
+    (ties broken toward the coarser side).
+    """
+    #geq = np.where(sizes >= target)[0]
+    #if geq.size:
+    #    return int(geq.max())
+    # fallback: nearest by absolute difference; prefer coarser on ties
+    diff = np.abs(sizes - target)
+    best = int(np.argmin(diff))
+    # tie-break toward coarser (larger index)
+    ties = np.where(diff == diff[best])[0]
+    return int(ties.max())
+
+
+def _choose_policy_by_N(N: int) -> Tuple[str, int, int, Optional[int]]:
+    """
+    Map dataset size N to a level-selection policy.
+    Returns a tuple:
+      (mode, start_min_clusters, max_extra_levels, end_max_clusters)
+
+    mode:
+      - "top_to_threshold": start at *top* (coarsest) and include levels down to a cluster-cap
+      - "start_and_descend": start near 'start_min_clusters' and include up to 'max_extra_levels'
+                             finer levels, optionally capping by 'end_max_clusters'
+    """
+    if N <= 10_000:
+        # Start from the very top; include levels down until ≤ 1k clusters
+        return ("top_to_threshold", 0, 0, 500)                
+    elif N <= 500_000:
+        # Start around ≥10 clusters; descend up to 2 levels, but don't exceed 1k clusters
+        return ("start_and_descend", 50, 2, 1_000)
+    elif N <= 1_000_000:
+        # Start around 500 clusters; allow up to 2 levels; cap around 10k
+        return ("start_and_descend", 500, 2, 3_000)
+    elif N <= 5_000_000:
+        # Start ≥1000; go 2 levels if available
+        return ("start_and_descend", 3_000, 2, 5_000)
+    elif N <= 10_000_000:
+        # Start ≥1000; go 1 level
+        return ("start_and_descend", 15_000, 1, None)
+    elif N <= 30_000_000:
+        # Start ≥2000; go 1 level
+        return ("start_and_descend", 20_000, 1, None)
+    else:
+        # Very large: only one v2 level near ~50k, then pass to v1
+        return ("start_and_descend", 50_000, 0, None)
+
+        
+def choose_v2_level_block(
+    partition_sizes: Sequence[int],
+    N: int,
+    start_cluster_view: Union[str, int, None] = "auto",
+) -> np.ndarray:
+    """
+    Decide which FINCH hierarchy levels (indices) to use for the v2 packer.
+
+    Parameters
+    ----------
+    partition_sizes : Sequence[int]
+        Number of clusters per level, ordered fine→coarse (monotonically decreasing).
+        Example: [49316, 11032, 2543, 421, 41, 8]
+    N : int
+        Number of data points.
+    start_cluster_view : {"auto", int, None}
+        - "auto" / None: pick start/end levels automatically from N.
+        - int: respect this as the desired starting cluster count (nearest level chosen),
+               but choose how many child levels to include automatically per the N-policy.
+
+    Returns
+    -------
+    np.ndarray
+        Sorted indices (ascending, i.e., fine→coarse) forming a *contiguous* block
+        [fine_start, ..., coarse_end], where the last index is the coarsest included level.
+        Safe to use as: partitions_v2 = partitions[:, indices]
+                        partitions_v1 = partitions[:, :indices[0] + 1]
+    """
+    sizes = np.asarray(partition_sizes, dtype=int)
+    L = sizes.size
+    if L == 0:
+        return np.array([], dtype=int)
+
+    # Sanity: sizes should be monotonically decreasing (fine→coarse)
+    # We'll tolerate small deviations but selection assumes decreasing trend.
+
+    mode, auto_start_min, max_extra, end_cap = _choose_policy_by_N(int(N))
+
+    # --- Case A: small-N special (start at top; go down to a cluster cap) ---
+    if (start_cluster_view in ("auto", None)) and (mode == "top_to_threshold"):
+        # first index from fine-side that is ≤ end_cap (default 2000)
+        # if none, include everything (s_idx = 0)
+        s_idx = int(np.argmax(sizes <= end_cap)) if np.any(sizes <= end_cap) else 0
+        e_idx = L - 1  # top (coarsest)
+        return np.arange(s_idx, e_idx + 1, dtype=int)
+
+    # --- Case B: start near a cluster target and descend a few levels ---
+    # Determine the desired start cluster count
+    if start_cluster_view in ("auto", None):
+        start_target = auto_start_min
+    else:
+        start_target = int(start_cluster_view)
+
+    # Choose the *coarsest* level with clusters ≥ start_target (or nearest if none)
+    s = _nearest_level_geq_coarsest(sizes, start_target)
+
+    # Decide how many finer levels to include beneath s
+    steps = 0
+    for step in range(1, max_extra + 1):
+        cand = s - step
+        if cand < 0:
+            break
+        if end_cap is not None and sizes[cand] > end_cap:
+            break
+        steps = step
+
+    f = s - steps  # finest included index
+    e = s          # coarsest included index (the chosen start)
+    return np.arange(f, e + 1, dtype=int)
+
+
+#----------------------------------------------------------------------------------------------------#
 #-----  optional utilities  ------#
 
 

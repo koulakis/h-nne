@@ -1,5 +1,4 @@
 from enum import Enum
-import time
 import numpy as np
 from sklearn.decomposition import PCA
 from sklearn.metrics import pairwise
@@ -7,7 +6,7 @@ from sklearn.preprocessing import StandardScaler
 from hnne.cool_functions import cool_max_radius, cool_max, cool_mean
 from hnne.point_spreading import norm_angles, norm_angles_3d
 from hnne.v2_packer import pack_hierarchy_iterative_k_nd
-from hnne.v2_utils import layout_to_level_arrays, rubust_scale_per_parent, partition_update, format_time
+from hnne.v2_utils import layout_to_level_arrays, rubust_scale_per_parent, partition_update, choose_v2_level_block, HNNEVersion, _normalize_hnne_version
 from scipy.spatial import cKDTree
 try:
     from pynndescent import NNDescent
@@ -322,6 +321,7 @@ def move_projected_points_to_anchors_v1(
         anchors_max_radius,
     )
 
+# ---------------------- Integrated multi_step_projection ---------------------- #
 
 def multi_step_projection(
     data,
@@ -330,33 +330,33 @@ def multi_step_projection(
     radius,
     ann_threshold,
     dim=2,
-    v2=True,
+    hnne_version: HNNEVersion = "version_2",
     partition_sizes=None,
     prefered_num_clust=None,
     requested_partition=None,
     preliminary_embedding="pca",
     random_state=None,
     verbose=False,
-    v1_behaviour=False,
-    # v2 knobs 
-    v2_size_threshold=100,
-    v2_k=1,
-    v2_outer_sweeps=1,
-    # start-at target (optional)
-    start_cluster_view=10,
+    # v2 knobs
+    v2_size_threshold=100,  # (kept for API; ignored in auto mode)
+    # start-at target (optional): "auto" or int
+    start_cluster_view="auto",
 ):
     """
-    h-NNEv2: Integrates fast hierarchical v2 packing inside the pipeline:
-      • Pack the top levels with v2 (<= v2_size_threshold, optionally starting from start_cluster_view).
-      • Seed the first classic h-NNE pass with (anchors, radii) from the boundary v2 level.
-      • After that, run the normal h-NNE descent, i.e., move points to anchors level by level.
-
+    h-NNE v2: integrate fast hierarchical packing at the top of the hierarchy
+    and seed the classic h-NNE descent with those anchors/radii.
+    
+    :: hnne_version selects between the legacy v1 projection and the packing-aware v2 pipeline (default). 
+    
     Returns:
-      curr_anchors, anchor_radii, moved_anchors, pca, scaler, points_means,
-      points_max_radii, inflation_params_list
+      curr_anchors, anchor_radii, moved_anchors, pca, scaler,
+      points_means, points_max_radii, inflation_params_list,
+      v2_layout
     """
-
-    # 0) Preliminary projection (unchanged)
+    ver = _normalize_hnne_version(hnne_version)
+    use_v2 = (ver == "v2")
+    
+    # 0) Preliminary projection
     projected_points, pca, scaler = project_points(
         data,
         dim=dim,
@@ -366,104 +366,93 @@ def multi_step_projection(
         random_state=random_state,
         verbose=verbose,
     )
-    #-----   tmp packing time ####------
-    time_elapsed = None
-    #start_time = time.time()
-    
+
     if verbose and partition_sizes is not None:
         print(partition_sizes)
+
+    N = int(data.shape[0])
 
     # Helper: projected anchors for a given partitions matrix
     def _projected_anchors_for(parts_mat):
         pa = get_finch_anchors(projected_points, partitions=parts_mat)
         return [projected_points] + pa  # index-aligned with parts_mat columns
 
-   
     # Defaults (no v2 seeding)
     parts_for_loop = partitions
     projected_anchors_loop = _projected_anchors_for(parts_for_loop)
     reversed_partition_range = list(reversed(range(parts_for_loop.shape[1])))
-    
-    
+
     # v2 seeding holders
     seed_anchors = None
     seed_radii_col = None  # (K,1)
-    # pre-populate moved_anchors / anchor_radii with ALL v2 levels (coarsest→boundary)
     moved_anchors = None
     anchor_radii = None
+    v2_layout = []
 
     # 1) Decide which top levels to pack with v2 (if enabled)
-    if v2:
-        
+    if use_v2:
+        # Ensure partition_sizes present and consistent
         if partition_sizes is None:
-            partition_sizes  = [len(set(partitions[:, i])) for i in range(partitions.shape[1])]
-            
-        
-        # Honor user "preferred" as starting point if specified
+            partition_sizes = [len(set(partitions[:, i])) for i in range(partitions.shape[1])]
+        ps = np.asarray(partition_sizes, dtype=int)
+
+        # Respect user's preferred start if provided (and optional requested_partition)
         if prefered_num_clust is not None:
             if requested_partition is not None:
                 if prefered_num_clust == len(np.unique(requested_partition)):
-                    ind = [i for i, v in enumerate(partition_sizes) if v >= prefered_num_clust]
-                    partitions, partition_sizes, partition_labels = partition_update(partitions, ind[-1], requested_partition, partition_sizes, partition_labels)
-            start_cluster_view = prefered_num_clust
-                
-        
-        ps = np.asarray(partition_sizes)
-        
-        # Enforce check:
-        # If requested start is smaller than the coarsest (top) level, bump it up.
-        # Note: ps[-1] is the top-most (coarsest) cluster count.
-        if start_cluster_view is not None and start_cluster_view < ps[-1]:
+                    ind = [i for i, v in enumerate(ps) if v >= prefered_num_clust]
+                    partitions, ps, partition_labels = partition_update(
+                        partitions, ind[-1], requested_partition, ps, partition_labels
+                    )
+            start_cluster_view = int(prefered_num_clust)
+
+        # If the user explicitly provided an integer start below top (coarsest) size, bump to top and warn
+        if (isinstance(start_cluster_view, (int, np.integer))) and (start_cluster_view < ps[-1]):
             print(
                 f"[INFO]: The required start_cluster_view is smaller than the default top level "
-                f"of used FINCH hierarchy i.e. {ps[-1]} clusters. Please set this using "
-                f"prefered_num_clust when initializing HNNE (prefered_num_clust=None)."
+                f"of the FINCH hierarchy (i.e. {ps[-1]} clusters). "
+                f"Using {ps[-1]} instead. Set prefered_num_clust if you intend to override."
             )
             start_cluster_view = int(ps[-1])
-        
-        # Base: everything up to threshold
-        top_part = np.where(ps <= v2_size_threshold)[0]
 
-        # If user requested a particular start, extend/trim accordingly
-        if start_cluster_view is not None:
-            if start_cluster_view > v2_size_threshold:
-                top_part = np.where(ps <= start_cluster_view)[0]
-            else:
-                # pick nearest level to request, but within the <=threshold set
-                cut_idx = int(np.argmin(np.abs(ps - start_cluster_view)))
-                top_part = top_part[top_part <= cut_idx]
+        # Automatic block selection (fine→coarse indices)
+        indices_v2 = choose_v2_level_block(ps, N, start_cluster_view=start_cluster_view)
 
-        if top_part.size > 0:
-            # Split hierarchy into:
-            #   partitions_v2 (top/coarser side) and parts_for_loop (finer side)
-            idx0 = int(top_part[0])              # boundary level (finest among v2)
-            partitions_v2 = partitions[:, top_part]
+        # (Optional legacy max v2 level: only apply if user *explicitly* set a small v2 level threshold)
+        if isinstance(v2_size_threshold, (int, np.integer)) and v2_size_threshold > 0 and start_cluster_view != "auto":
+            idx_keep = np.where(ps <= int(v2_size_threshold))[0]
+            # intersect while preserving contiguity if possible
+            if idx_keep.size:
+                lo, hi = indices_v2[0], indices_v2[-1]
+                mask = (idx_keep >= lo) & (idx_keep <= hi)
+                if np.any(mask):
+                    indices_v2 = idx_keep[mask]
+
+        if indices_v2.size > 0:
+            # Split into v2 slice and the finer remainder for the classic loop
+            idx0 = int(indices_v2[0])  # boundary (finest among v2)
+            partitions_v2 = partitions[:, indices_v2]
             parts_for_loop = partitions[:, :idx0 + 1]
 
             if verbose:
-                print(f"[v2] packing top levels (original indices): {top_part} "
-                      f"with sizes {ps[top_part].tolist()}")
+                print(f"[v2] packing levels (fine→coarse) indices {indices_v2.tolist()} "
+                      f"with sizes {ps[indices_v2].tolist()}")
 
-            # v2 pack directly in 'dim' dimensions (ND enabled)
-            start_time = time.time()
+            # v2 pack (ND-enabled)
             v2_layout = pack_hierarchy_iterative_k_nd(
                 projected_points, partitions_v2,
-                k=v2_k, outer_sweeps=v2_outer_sweeps,
+                k=1, outer_sweeps=1,
                 mass_mode_2d="area", mass_mode_nd="powerD",
             )
             anchors_by_level, radii_by_level = layout_to_level_arrays(v2_layout)
-            
-            time_elapsed = format_time(time.time() - start_time)
-            
-            # Guards
+
             if len(anchors_by_level) > 0:
-                # anchors_by_level[0] == boundary (original idx0)
+                # boundary seed (level 0 in this sub-hierarchy)
                 seed_anchors = anchors_by_level[0]
                 seed_radii_col = radii_by_level[0].reshape(-1, 1)
 
                 # Pre-populate outputs with ALL v2 levels from coarsest → boundary
-                # layout_to_level_arrays returns levels ascending (0..L2-1), where 0 is boundary (finest of v2)
-                moved_anchors = [anchors_by_level[-1]]  # coarsest v2
+                moved_anchors = [anchors_by_level[-1]]
                 anchor_radii = [radii_by_level[-1]]
                 for li in range(len(anchors_by_level) - 2, -1, -1):
                     moved_anchors.append(anchors_by_level[li])
@@ -476,15 +465,16 @@ def multi_step_projection(
             else:
                 if verbose:
                     print("[v2] layout empty after packing; falling back to vanilla pipeline.")
-    
-    if v1_behaviour:
-        move_projected_points_to_anchors = move_projected_points_to_anchors_v1
+
+    # 2) Choose mapping kernel (v1 or optimized v2)
+    if ver == "v1":
+        mppta = move_projected_points_to_anchors_v1
     else:
-        move_projected_points_to_anchors = move_projected_points_to_anchors_v2
-        radius = 0.9  #radius factor can be bigger as here it is capped internally
-    
-    # 2) Initialize loop state
-    curr_anchors = projected_anchors_loop[-1]  # classic: coarsest projected anchors
+        mppta = move_projected_points_to_anchors_v2
+        radius = 0.8  # larger factor safe due to capping inside v2 kernel
+
+    # 3) Initialize loop state
+    curr_anchors = projected_anchors_loop[-1]  # coarsest projected anchors
     if seed_anchors is not None:
         curr_anchors = seed_anchors
 
@@ -492,7 +482,7 @@ def multi_step_projection(
     if seed_radii_col is not None:
         curr_anchor_radii = seed_radii_col
 
-    # If v2 wasn’t used, initialize outputs now like in the original v1
+    # If v2 wasn’t used, initialize outputs now like in v1
     if moved_anchors is None:
         moved_anchors = [curr_anchors]
     if anchor_radii is None:
@@ -502,16 +492,12 @@ def multi_step_projection(
     points_max_radii = []
     inflation_params_list = []
 
-    # 3) Descent through the remaining (finer) levels
+    # 4) Descent through the remaining (finer) levels
     for cnt, i in enumerate(reversed_partition_range):
-        if i == 0:
-            partition_mapping = parts_for_loop[:, 0]
-        else:
-            partition_mapping = partition_labels[i - 1]
-
+        partition_mapping = parts_for_loop[:, 0] if i == 0 else partition_labels[i - 1]
         current_points = projected_anchors_loop[i]
 
-        # angle normalization (unchanged)
+        # angle normalization for 2D/3D
         if dim == 2:
             thetas = np.linspace(0, np.pi / 2, 6)
             current_points, inflation_params = norm_angles(
@@ -524,12 +510,9 @@ def multi_step_projection(
                 current_points, alphas, beta, gammas, partition_mapping
             )
             inflation_params_list.append(inflation_params)
-        else:
-            # No angle normalization >3D
-            pass
 
-        # First pass may use v2 radii; subsequent passes use None (classic behavior)
-        curr_anchors, radii, points_mean, points_max_radius = move_projected_points_to_anchors(
+        # first pass may use v2 radii; subsequent passes use None
+        curr_anchors, radii, points_mean, points_max_radius = mppta(
             current_points,
             curr_anchors,
             partition_mapping,
@@ -539,7 +522,7 @@ def multi_step_projection(
             verbose=verbose,
         )
 
-        anchor_radii.append(radii)     # radii for this processed level
+        anchor_radii.append(radii)
         moved_anchors.append(curr_anchors)
         points_means.append(points_mean)
         points_max_radii.append(points_max_radius)
@@ -548,9 +531,6 @@ def multi_step_projection(
         if curr_anchor_radii is not None:
             curr_anchor_radii = None
 
-    if not v2:
-        v2_layout = []
-        
     return (
         curr_anchors,
         anchor_radii,
@@ -561,5 +541,4 @@ def multi_step_projection(
         points_max_radii,
         inflation_params_list,
         v2_layout,
-        time_elapsed
     )
