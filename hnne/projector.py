@@ -1,6 +1,6 @@
 import pickle
 from dataclasses import dataclass
-from typing import Any, List, Optional, Dict, Tuple
+from typing import Any, List, Optional, Dict, Tuple, Literal, Union
 import numpy as np
 from pynndescent import NNDescent
 from sklearn import metrics
@@ -10,7 +10,7 @@ from sklearn.preprocessing import StandardScaler
 
 from hnne.finch_clustering import FINCH
 from hnne.hierarchical_projection import PreliminaryEmbedding, multi_step_projection
-
+from hnne.v2_utils import HNNEVersion, _normalize_hnne_version
 
 @dataclass
 class HierarchyParameters:
@@ -34,6 +34,9 @@ class ProjectionParameters:
     knn_index_transform: Optional[Any]
 
 
+
+
+
 class HNNE(BaseEstimator):
     """Hierarchical 1-Nearest Neighbor graph based Embedding
 
@@ -54,7 +57,7 @@ class HNNE(BaseEstimator):
         Though the theoretical value which guarantees no overlaps between anchor points is 0.2, 0.45 is a value which
         provides in practice denser visualizations with minimal loss in performance.
 
-    ann_threshold: int (default 40000)
+    ann_threshold: int (default 20000)
         A threshold above which approximate nearest neighbors will be computed instead of real nearest neighbors when
         building the levels of h-nne.
 
@@ -67,13 +70,48 @@ class HNNE(BaseEstimator):
     
     prefered_num_clust: Optional[int] (default None)
         preferred clusters view. set to number of ground truth classes or clusters in your data.
+    
+   hnne_version : Literal["v1","v2","version_1","version_2","1","2","auto"], optional (default "version_2")
+        Selects which h-NNE pipeline variant to run.
+
+        - **"v2"/"version_2"/"2"**: Use the packing-aware v2 pipeline. A small set of
+          coarse FINCH levels is laid out with the fast hierarchical packing layer
+          (2D fast path or ND fallback) and the resulting anchor radii seed the first
+          descent step. Subsequent levels proceed with the standard h-NNE update.
+        - **"v1"/"version_1"/"1"**: Legacy behavior. No packing layer; points are
+          mapped into 1-NN–capped basins around anchors at each level.
+        - **"auto"**: Currently resolves to v2 (recommended). Kept for forward
+          compatibility if we later introduce adaptive selection.
+
+        The value is normalized internally (case-insensitive); synonyms above all map
+        to one of {"v1","v2"}. When "v1" is selected, any v2-specific knobs are ignored.
+
+    start_cluster_view : {"auto", int, None} (default "auto")
+        Controls where the v2 packing starts in the FINCH hierarchy (coarse→fine).
+
+        - **"auto"/None**: Pick a start/end band automatically from dataset size *N*
+          (coarse rule-of-thumb policy). This chooses a coarse start level and how
+          many child levels to include before handing off to the classic descent.
+        - **int**: Desired starting number of clusters; the nearest FINCH level is
+          used. The number of child levels to include is still chosen automatically
+          from *N*.
+
+    v2_size_threshold : Optional[int] (default None)
+        Upper bound on the cluster count for levels to be packed by v2. If `None`,
+        the automatic policy (based on *N*) selects a reasonable end level. If set,
+        the finest level used by v2 is the finest level whose cluster count is
+        `<= v2_size_threshold`. Only used when `hnne_version` is v2/"auto".
 
     Attributes
     ----------
     min_size_top_level: int (default 3)
         The minimum number of centroids existing on the top level of the hierarchy. To achieve this minimum, the top
         levels which have fewer centroids are removed.
-
+    
+    faiss_threshold: int | None = 10_000_000
+    faiss_use_gpu: bool = False
+        For very large data size > faiss_threshold, FINCH use faiss for computing 1-nn
+    
     hierarchy_parameters: Optional[HierarchyParameters]
         An object holding the parameters which encode the h-nne hierarchy. They are saved during fitting and can be
         reused both during projecting new points or projecting again with different parameters, e.g. n_components.
@@ -95,15 +133,16 @@ class HNNE(BaseEstimator):
         n_components: int = 2,
         metric: str = "cosine",
         radius: float = 0.4,
-        ann_threshold: int = 10000,
+        ann_threshold: int = 20_000,
         preliminary_embedding: str = "pca",
         random_state: Optional[int] = None,
         prefered_num_clust: Optional[int] = None,
-        hnne_v2: bool = True,
-        v1_behaviour: bool = False,
-        v2_k: int = 1,
-        v2_size_threshold: int = 100,
-        start_cluster_view: Optional[int] = 10
+        hnne_version: HNNEVersion = "version_2",
+        start_cluster_view: Union[str, int, None] = "auto",
+        v2_size_threshold: Optional[int] = None,
+        faiss_threshold: int = 10_000_000,
+        faiss_use_gpu: bool = False
+        
         
     ):
         self.n_components = n_components
@@ -111,8 +150,7 @@ class HNNE(BaseEstimator):
         self.ann_threshold = ann_threshold
         self.random_state = random_state
         self.prefered_num_clust = prefered_num_clust
-        self.v2 = hnne_v2
-        self.v1_behaviour = v1_behaviour
+        self.hnne_version = _normalize_hnne_version(hnne_version)
         self.v2_size_threshold =  v2_size_threshold
         self.start_cluster_view = start_cluster_view
         try:
@@ -126,6 +164,11 @@ class HNNE(BaseEstimator):
         self.preliminary_embedding = preliminary_embedding
         self.metric = metric
         self.min_size_top_level: int = 3
+        
+        #faiss
+        self.faiss_threshold = faiss_threshold
+        self.faiss_use_gpu = faiss_use_gpu
+        #--
         self.hierarchy_parameters: Optional[HierarchyParameters] = None
         self.projection_parameters: Optional[ProjectionParameters] = None
 
@@ -140,6 +183,8 @@ class HNNE(BaseEstimator):
             distance=self.metric,
             ann_threshold=self.ann_threshold,
             random_state=self.random_state,
+            faiss_threshold=self.faiss_threshold,
+            faiss_use_gpu=self.faiss_use_gpu,
         )
 
         large_enough_partitions = np.argwhere(
@@ -232,7 +277,6 @@ class HNNE(BaseEstimator):
             points_max_radii,
             inflation_params_list,
             v2_layout,
-            time_elapsed
         ] = multi_step_projection(
             data=X,
             partitions=partitions,
@@ -244,8 +288,7 @@ class HNNE(BaseEstimator):
             preliminary_embedding=self.preliminary_embedding,
             prefered_num_clust=self.prefered_num_clust,
             requested_partition=requested_partition,
-            v2=self.v2,
-            v1_behaviour = self.v1_behaviour,
+            hnne_version = self.hnne_version,
             v2_size_threshold=self.v2_size_threshold,
             start_cluster_view=self.start_cluster_view,
             random_state=self.random_state,

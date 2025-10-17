@@ -10,16 +10,21 @@ from typing import Dict, Tuple, List, Optional, Sequence, Union
 import numpy as np
 import math
 import time
+from hnne.cool_functions import cool_mean
 
 # ---------------- basic helpers (dimension-agnostic) ----------------
 
 def _cluster_means_nd(X: np.ndarray, labels: np.ndarray):
+    '''
     labels = np.asarray(labels)
     uniq, inv = np.unique(labels, return_inverse=True)
     counts = np.bincount(inv, minlength=len(uniq))
     means = np.zeros((len(uniq), X.shape[1]), float)
     np.add.at(means, inv, X)
     means = means / counts[:, None]
+    return uniq, counts, means
+    '''
+    uniq, counts, means = cool_mean(X, labels, return_counts=True)
     return uniq, counts, means
 
 def _base_radii_from_counts(counts: np.ndarray) -> np.ndarray:
