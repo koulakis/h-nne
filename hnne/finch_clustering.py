@@ -18,47 +18,6 @@ try:
 except Exception:
     _HAS_FAISS = False
 
-'''
-def clust_rank(
-    mat,
-    initial_rank=None,
-    metric="cosine",
-    verbose=False,
-    ann_threshold=10_000,
-    random_state=None,
-):
-    knn_index = None
-    s = mat.shape[0]
-    if initial_rank is not None:
-        orig_dist = np.empty(shape=(1, 1))
-    elif s <= ann_threshold:
-        orig_dist = metrics.pairwise.pairwise_distances(mat, mat, metric=metric)
-        np.fill_diagonal(orig_dist, 1e12)
-        initial_rank = np.argmin(orig_dist, axis=1)
-    else:
-        if verbose:
-            print("Using PyNNDescent to compute 1st-neighbours at this step ...")
-        knn_index = NNDescent(
-            mat,
-            n_neighbors=2,
-            metric=metric,
-            verbose=verbose,
-            random_state=random_state,
-        )
-        result, orig_dist = knn_index.neighbor_graph
-        initial_rank = result[:, 1]
-        orig_dist[:, 0] = 1e12
-        if verbose:
-            print("Step PyNNDescent done ...")
-
-    sparse_adjacency_matrix = sp.csr_matrix(
-        (np.ones_like(initial_rank, dtype=np.float32), (np.arange(0, s), initial_rank)),
-        shape=(s, s),
-    )
-
-    return sparse_adjacency_matrix, orig_dist, initial_rank, knn_index
-'''
-
 
 def clust_rank(
     mat,
@@ -68,7 +27,6 @@ def clust_rank(
     ann_threshold=10_000,
     random_state=None,
     *,
-    tiny_nn_threshold=5_000,     # for small points use excat pairwise dist
     # FAISS branch (very large)
     use_faiss=True,
     faiss_threshold=10_000_000,  
@@ -80,11 +38,9 @@ def clust_rank(
 
       n = mat.shape[0]
       • if initial_rank is provided: use it (legacy).
-      • elif n <= ann_threshold  (exact regime):
-           - if n <= tiny_nn_threshold: exact 1-NN via pairwise.
-           - else (tiny_nn_threshold < n <= ann_threshold): exact nn via chunked distances.
+      • elif n <= ann_threshold; exact 1-NN via pairwise.
       • elif use_faiss and n >= faiss_threshold and metric in {"cosine","euclidean"}:
-           - FAISS IVF-PQ top-1 (+ optional exact refine inside helper).
+           - FAISS IVF-PQ or HSNW top-1
       • else:
            - NN-Descent with k=2 (memory-friendly, fast mid-range).
 
@@ -128,7 +84,7 @@ def clust_rank(
         # ---------- Very large: FAISS IVF-PQ (optional) ----------
         elif use_faiss and (s >= faiss_threshold) and (metric in {"cosine", "euclidean"}):
             if verbose:
-                print(f"[FINCH] FAISS IVF-PQ 1-NN (n={s}, metric='{metric}')")
+                print(f"[FINCH] FAISS 1-NN (n={s}, metric='{metric}')")
             try:
                 nn_idx, nn_dst = faiss_top1(mat, metric=metric, use_gpu=faiss_use_gpu, verbose=verbose, **faiss_kwargs)
                 orig_dist = np.empty((s, 2), dtype=np.float32)
