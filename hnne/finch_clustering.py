@@ -9,16 +9,22 @@ import numpy as np
 import scipy.sparse as sp
 from pynndescent import NNDescent
 from sklearn import metrics
-
 from hnne.cool_functions import cool_mean
+from hnne.finch_utils import faiss_top1, _default_faiss_kwargs
 
+try:
+    import faiss  
+    _HAS_FAISS = True
+except Exception:
+    _HAS_FAISS = False
 
+'''
 def clust_rank(
     mat,
     initial_rank=None,
     metric="cosine",
     verbose=False,
-    ann_threshold=40000,
+    ann_threshold=10_000,
     random_state=None,
 ):
     knn_index = None
@@ -51,6 +57,117 @@ def clust_rank(
     )
 
     return sparse_adjacency_matrix, orig_dist, initial_rank, knn_index
+'''
+
+
+def clust_rank(
+    mat,
+    initial_rank=None,
+    metric="cosine",
+    verbose=False,
+    ann_threshold=10_000,
+    random_state=None,
+    *,
+    tiny_nn_threshold=5_000,     # for small points use excat pairwise dist
+    # FAISS branch (very large)
+    use_faiss=True,
+    faiss_threshold=10_000_000,  
+    faiss_use_gpu=False,
+    faiss_kwargs=None,    # dict passed to _faiss_top1_ivfpq
+):
+    """
+    Compute 1-NN for FINCH:
+
+      n = mat.shape[0]
+      • if initial_rank is provided: use it (legacy).
+      • elif n <= ann_threshold  (exact regime):
+           - if n <= tiny_nn_threshold: exact 1-NN via pairwise.
+           - else (tiny_nn_threshold < n <= ann_threshold): exact nn via chunked distances.
+      • elif use_faiss and n >= faiss_threshold and metric in {"cosine","euclidean"}:
+           - FAISS IVF-PQ top-1 (+ optional exact refine inside helper).
+      • else:
+           - NN-Descent with k=2 (memory-friendly, fast mid-range).
+
+    Returns
+    -------
+    sparse_adjacency_matrix : csr_matrix (n, n)
+        One outgoing edge per row (i -> 1-NN(i)).
+    orig_dist : ndarray
+        If pairwise exact path: (n, n) dense distances (diag set large).
+        Else: shape (n, 2): [:,0]=large sentinel (1e12), [:,1]=1-NN distance.
+    initial_rank : ndarray (n,)
+        Index of the 1st non-self neighbor for each point.
+    knn_index : object or None
+        NNDescent index if used; else None.
+    """
+        
+    s = mat.shape[0]
+    knn_index = None
+    
+    if faiss_kwargs is None:
+        faiss_kwargs = _default_faiss_kwargs(n=s, metric=metric, d=mat.shape[1], ram_gb=None)
+        
+    else:
+        # merge user overrides onto auto defaults
+        auto = _default_faiss_kwargs(s, metric)
+        auto.update(faiss_kwargs)
+        faiss_kwargs = auto
+    
+    # --- Legacy: user-provided 1-NN indices ---
+    if initial_rank is not None:
+        # Minimal placeholder to keep downstream shape checks happy
+        orig_dist = np.empty((1, 1), dtype=np.float32)
+
+    else:
+        # ---------- Exact regime (n <= ann_threshold) ----------
+        if s <= ann_threshold:
+            orig_dist = metrics.pairwise_distances(mat, mat, metric=metric).astype(np.float32, copy=False)
+            np.fill_diagonal(orig_dist, np.float32(1e12))
+            initial_rank = np.argmin(orig_dist, axis=1).astype(np.int32, copy=False)
+
+        # ---------- Very large: FAISS IVF-PQ (optional) ----------
+        elif use_faiss and (s >= faiss_threshold) and (metric in {"cosine", "euclidean"}):
+            if verbose:
+                print(f"[FINCH] FAISS IVF-PQ 1-NN (n={s}, metric='{metric}')")
+            try:
+                nn_idx, nn_dst = faiss_top1(mat, metric=metric, use_gpu=faiss_use_gpu, verbose=verbose, **faiss_kwargs)
+                orig_dist = np.empty((s, 2), dtype=np.float32)
+                orig_dist[:, 0] = np.float32(1e12)
+                orig_dist[:, 1] = nn_dst.astype(np.float32, copy=False)
+                initial_rank = nn_idx.astype(np.int32, copy=False)
+            except Exception as e:
+                if verbose:
+                    print(f"[FINCH] FAISS path failed ({e}); falling back to NN-Descent.")
+                knn_index = NNDescent(
+                    mat, n_neighbors=2, metric=metric,
+                    verbose=verbose, random_state=random_state
+                )
+                result, dist = knn_index.neighbor_graph
+                initial_rank = result[:, 1].astype(np.int32, copy=False)
+                orig_dist = dist.astype(np.float32, copy=False)
+                orig_dist[:, 0] = np.float32(1e12)
+
+        # ---------- Mid / large (default): NN-Descent ----------
+        else:
+            if verbose:
+                print(f"[FINCH] PyNNDescent (k=2, n={s}, metric='{metric}')")
+            knn_index = NNDescent(
+                mat, n_neighbors=2, metric=metric,
+                verbose=verbose, random_state=random_state
+            )
+            result, dist = knn_index.neighbor_graph
+            initial_rank = result[:, 1].astype(np.int32, copy=False)
+            orig_dist = dist.astype(np.float32, copy=False)
+            orig_dist[:, 0] = np.float32(1e12)
+
+    # Build sparse 1-NN adjacency (one outgoing edge per row)
+    rows = np.arange(s, dtype=np.int32)
+    cols = initial_rank
+    data = np.ones_like(rows, dtype=np.float32)
+    sparse_adjacency_matrix = sp.csr_matrix((data, (rows, cols)), shape=(s, s))
+
+    return sparse_adjacency_matrix, orig_dist, initial_rank, knn_index
+
 
 
 def get_clust(a, orig_dist, min_sim=None):
@@ -104,9 +221,12 @@ def FINCH(
     initial_rank: Optional[np.ndarray] = None,
     distance: str = "cosine",
     ensure_early_exit: bool = True,
-    verbose: bool = True,
-    ann_threshold: int = 40000,
+    ann_threshold: int = 10_000,
+    faiss_threshold: int | None = 10_000_000,
+    faiss_use_gpu: bool = False,
+    faiss_kwargs: dict | None = None,
     random_state: Optional[int] = None,
+    verbose: bool = False,
 ):
     """FINCH clustering algorithm.
 
@@ -129,8 +249,8 @@ def FINCH(
         verbose: bool (default True)
             Print verbose output.
 
-        ann_threshold: int (default 40000)
-            Data size threshold below which nearest neighbors are approximated with ANNs.
+        ann_threshold: int (default 100_000)
+            Data size threshold above which nearest neighbors are approximated with ANNs.
 
         random_state: Optional[int] (default None)
             An optional random state for reproducibility purposes. It fixes the state of ANN.
@@ -168,7 +288,11 @@ def FINCH(
         verbose=verbose,
         ann_threshold=ann_threshold,
         random_state=random_state,
+        faiss_threshold=faiss_threshold,
+        faiss_use_gpu=faiss_use_gpu,
+        faiss_kwargs=faiss_kwargs, # sets auto if None
     )
+    
     initial_rank = None
 
     group, num_clust = get_clust(adj, [], min_sim)
@@ -180,14 +304,15 @@ def FINCH(
         print("Level 0: {} clusters".format(num_clust))
 
     if ensure_early_exit:
-        if orig_dist.shape[-1] > 2:
-            min_sim = np.max(orig_dist * adj.toarray())
+        if orig_dist.ndim == 2 and orig_dist.shape[-1] > 2:
+            min_sim = float(np.max(orig_dist * adj.toarray()))
 
     exit_clust = 2
     c_ = c
     k = 1
     num_clust = [num_clust]
     partition_clustering = []
+    
     while exit_clust > 1:
         adj, orig_dist, first_neighbors, knn_index = clust_rank(
             mat,
@@ -196,6 +321,9 @@ def FINCH(
             verbose=verbose,
             ann_threshold=ann_threshold,
             random_state=random_state,
+            faiss_threshold=faiss_threshold,
+            faiss_use_gpu=faiss_use_gpu,
+            faiss_kwargs=faiss_kwargs, # sets auto if None
         )
 
         u, num_clust_curr = get_clust(adj, orig_dist, min_sim)

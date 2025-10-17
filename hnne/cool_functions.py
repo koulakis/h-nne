@@ -2,6 +2,37 @@ import numpy as np
 import scipy.sparse as sp
 
 
+def cool_mean(data: np.ndarray, partition: np.ndarray, return_counts=False):
+    """Efficiently calculate the mean of all rows of a matrix M over a partition u. The number of classes in the
+    partition is implicitly defined from the values of u.
+
+    
+    Parameters
+    ----------
+        data: Matrix of dimensions (n, f) with n data points of f features each.
+
+        partition: Partition of the data points in the form of an (n, ) array with k different integer values.
+
+    Returns
+    -------
+        group_mean: A (k, f) matrix with the vectors averaged over the k partition values.
+    
+    General version: works for arbitrary integer labels (gaps, unsorted, etc.).
+    Returns (unique_labels_sorted, counts_per_label, means_in_that_order).
+    """
+    n = data.shape[0]
+    un, inv, nf = np.unique(partition, return_inverse=True, return_counts=True)
+    umat = sp.csr_matrix(
+        (np.ones(n, dtype=data.dtype), (np.arange(n, dtype=np.int64), inv)),
+        shape=(n, len(un)),
+    )
+    means = (umat.T @ data) / nf[:, None]
+    if return_counts:
+        return un, nf, means
+    else:
+        return means
+
+'''    
 def cool_mean(data, partition):
     """Efficiently calculate the mean of all rows of a matrix M over a partition u. The number of classes in the
     partition is implicitly defined from the values of u.
@@ -22,7 +53,7 @@ def cool_mean(data, partition):
         (np.ones(s, dtype="float32"), (np.arange(0, s), partition)), shape=(s, len(un))
     )
     return (umat.T @ data) / nf[..., np.newaxis]
-
+'''
 
 def cool_max(arr, partition):
     """Efficiently calculate the max of all elements of an array arr of **positive** reals over a partition u.
