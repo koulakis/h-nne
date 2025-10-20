@@ -6,7 +6,7 @@ def cool_mean(data: np.ndarray, partition: np.ndarray, return_counts=False):
     """Efficiently calculate the mean of all rows of a matrix M over a partition u. The number of classes in the
     partition is implicitly defined from the values of u.
 
-    
+
     Parameters
     ----------
         data: Matrix of dimensions (n, f) with n data points of f features each.
@@ -16,7 +16,7 @@ def cool_mean(data: np.ndarray, partition: np.ndarray, return_counts=False):
     Returns
     -------
         group_mean: A (k, f) matrix with the vectors averaged over the k partition values.
-    
+
     General version: works for arbitrary integer labels (gaps, unsorted, etc.).
     Returns (unique_labels_sorted, counts_per_label, means_in_that_order).
     """
@@ -32,7 +32,8 @@ def cool_mean(data: np.ndarray, partition: np.ndarray, return_counts=False):
     else:
         return means
 
-'''    
+
+'''
 def cool_mean(data, partition):
     """Efficiently calculate the mean of all rows of a matrix M over a partition u. The number of classes in the
     partition is implicitly defined from the values of u.
@@ -54,6 +55,7 @@ def cool_mean(data, partition):
     )
     return (umat.T @ data) / nf[..., np.newaxis]
 '''
+
 
 def cool_max(arr, partition):
     """Efficiently calculate the max of all elements of an array arr of **positive** reals over a partition u.

@@ -9,14 +9,9 @@ import numpy as np
 import scipy.sparse as sp
 from pynndescent import NNDescent
 from sklearn import metrics
-from hnne.cool_functions import cool_mean
-from hnne.finch_utils import faiss_top1, _default_faiss_kwargs
 
-try:
-    import faiss  
-    _HAS_FAISS = True
-except Exception:
-    _HAS_FAISS = False
+from hnne.cool_functions import cool_mean
+from hnne.finch_utils import _default_faiss_kwargs, faiss_top1
 
 
 def clust_rank(
@@ -29,9 +24,9 @@ def clust_rank(
     *,
     # FAISS branch (very large)
     use_faiss=True,
-    faiss_threshold=10_000_000,  
+    faiss_threshold=10_000_000,
     faiss_use_gpu=False,
-    faiss_kwargs=None,    # dict passed to _faiss_top1_ivfpq
+    faiss_kwargs=None,  # dict passed to _faiss_top1_ivfpq
 ):
     """
     Compute 1-NN for FINCH:
@@ -56,19 +51,21 @@ def clust_rank(
     knn_index : object or None
         NNDescent index if used; else None.
     """
-        
+
     s = mat.shape[0]
     knn_index = None
-    
+
     if faiss_kwargs is None:
-        faiss_kwargs = _default_faiss_kwargs(n=s, metric=metric, d=mat.shape[1], ram_gb=None)
-        
+        faiss_kwargs = _default_faiss_kwargs(
+            n=s, metric=metric, d=mat.shape[1], ram_gb=None
+        )
+
     else:
         # merge user overrides onto auto defaults
         auto = _default_faiss_kwargs(s, metric)
         auto.update(faiss_kwargs)
         faiss_kwargs = auto
-    
+
     # --- Legacy: user-provided 1-NN indices ---
     if initial_rank is not None:
         # Minimal placeholder to keep downstream shape checks happy
@@ -77,26 +74,41 @@ def clust_rank(
     else:
         # ---------- Exact regime (n <= ann_threshold) ----------
         if s <= ann_threshold:
-            orig_dist = metrics.pairwise_distances(mat, mat, metric=metric).astype(np.float32, copy=False)
+            orig_dist = metrics.pairwise_distances(mat, mat, metric=metric).astype(
+                np.float32, copy=False
+            )
             np.fill_diagonal(orig_dist, np.float32(1e12))
             initial_rank = np.argmin(orig_dist, axis=1).astype(np.int32, copy=False)
 
         # ---------- Very large: FAISS IVF-PQ (optional) ----------
-        elif use_faiss and (s >= faiss_threshold) and (metric in {"cosine", "euclidean"}):
+        elif (
+            use_faiss and (s >= faiss_threshold) and (metric in {"cosine", "euclidean"})
+        ):
             if verbose:
                 print(f"[FINCH] FAISS 1-NN (n={s}, metric='{metric}')")
             try:
-                nn_idx, nn_dst = faiss_top1(mat, metric=metric, use_gpu=faiss_use_gpu, verbose=verbose, **faiss_kwargs)
+                nn_idx, nn_dst = faiss_top1(
+                    mat,
+                    metric=metric,
+                    use_gpu=faiss_use_gpu,
+                    verbose=verbose,
+                    **faiss_kwargs,
+                )
                 orig_dist = np.empty((s, 2), dtype=np.float32)
                 orig_dist[:, 0] = np.float32(1e12)
                 orig_dist[:, 1] = nn_dst.astype(np.float32, copy=False)
                 initial_rank = nn_idx.astype(np.int32, copy=False)
             except Exception as e:
                 if verbose:
-                    print(f"[FINCH] FAISS path failed ({e}); falling back to NN-Descent.")
+                    print(
+                        f"[FINCH] FAISS path failed ({e}); falling back to NN-Descent."
+                    )
                 knn_index = NNDescent(
-                    mat, n_neighbors=2, metric=metric,
-                    verbose=verbose, random_state=random_state
+                    mat,
+                    n_neighbors=2,
+                    metric=metric,
+                    verbose=verbose,
+                    random_state=random_state,
                 )
                 result, dist = knn_index.neighbor_graph
                 initial_rank = result[:, 1].astype(np.int32, copy=False)
@@ -108,8 +120,11 @@ def clust_rank(
             if verbose:
                 print(f"[FINCH] PyNNDescent (k=2, n={s}, metric='{metric}')")
             knn_index = NNDescent(
-                mat, n_neighbors=2, metric=metric,
-                verbose=verbose, random_state=random_state
+                mat,
+                n_neighbors=2,
+                metric=metric,
+                verbose=verbose,
+                random_state=random_state,
             )
             result, dist = knn_index.neighbor_graph
             initial_rank = result[:, 1].astype(np.int32, copy=False)
@@ -123,7 +138,6 @@ def clust_rank(
     sparse_adjacency_matrix = sp.csr_matrix((data, (rows, cols)), shape=(s, s))
 
     return sparse_adjacency_matrix, orig_dist, initial_rank, knn_index
-
 
 
 def get_clust(a, orig_dist, min_sim=None):
@@ -164,11 +178,18 @@ def req_numclust(c, data, req_clust, distance, use_ann_above_samples, verbose):
     iter_ = len(np.unique(c)) - req_clust
     c_, mat = get_merge([], c, data)
     for i in range(iter_):
-        adj, orig_dist, _, _ = clust_rank(mat, initial_rank=None, ann_threshold=use_ann_above_samples, metric=distance, verbose=verbose)
+        adj, orig_dist, _, _ = clust_rank(
+            mat,
+            initial_rank=None,
+            ann_threshold=use_ann_above_samples,
+            metric=distance,
+            verbose=verbose,
+        )
         adj = update_adj(adj, orig_dist)
         u, _ = get_clust(adj, [], min_sim=None)
         c_, mat = get_merge(c_, u, data)
     return c_
+
 
 # noinspection PyPep8Naming
 def FINCH(
@@ -190,7 +211,7 @@ def FINCH(
     ----------
         data: array, shape (n_samples, n_features)
             Input matrix with features in rows.
-        
+
         req_clust: Set output number of clusters (optional).
 
         initial_rank: array, shape (n_samples, 1) (optional)
@@ -246,9 +267,9 @@ def FINCH(
         random_state=random_state,
         faiss_threshold=faiss_threshold,
         faiss_use_gpu=faiss_use_gpu,
-        faiss_kwargs=faiss_kwargs, # sets auto if None
+        faiss_kwargs=faiss_kwargs,  # sets auto if None
     )
-    
+
     initial_rank = None
 
     group, num_clust = get_clust(adj, [], min_sim)
@@ -268,7 +289,7 @@ def FINCH(
     k = 1
     num_clust = [num_clust]
     partition_clustering = []
-    
+
     while exit_clust > 1:
         adj, orig_dist, first_neighbors, knn_index = clust_rank(
             mat,
@@ -279,7 +300,7 @@ def FINCH(
             random_state=random_state,
             faiss_threshold=faiss_threshold,
             faiss_use_gpu=faiss_use_gpu,
-            faiss_kwargs=faiss_kwargs, # sets auto if None
+            faiss_kwargs=faiss_kwargs,  # sets auto if None
         )
 
         u, num_clust_curr = get_clust(adj, orig_dist, min_sim)
@@ -300,18 +321,22 @@ def FINCH(
         if verbose:
             print("Level {}: {} clusters".format(k, num_clust[k]))
         k += 1
-    
+
     if req_clust is not None:
         if req_clust not in num_clust:
             if req_clust > num_clust[0]:
-                print(f'requested number of clusters are larger than FINCH first partition with {num_clust[0]} clusters . Returning {num_clust[0]} clusters')
+                print(
+                    f"requested number of clusters are larger than FINCH first partition with {num_clust[0]} clusters. "
+                    f"Returning {num_clust[0]} clusters"
+                )
                 requested_c = c[:, 0]
-            
+
             else:
                 ind = [i for i, v in enumerate(num_clust) if v >= req_clust]
-                requested_c = req_numclust(c[:, ind[-1]], data, req_clust, distance, ann_threshold, verbose)
-            
+                requested_c = req_numclust(
+                    c[:, ind[-1]], data, req_clust, distance, ann_threshold, verbose
+                )
+
     else:
         requested_c = None
     return c, requested_c, num_clust, partition_clustering, lowest_level_centroids
-    

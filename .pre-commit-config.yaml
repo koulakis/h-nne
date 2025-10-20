@@ -15,6 +15,7 @@ repos:
     -   id: flake8
         args: [
             "--exclude=.git,__pycache__,docs,notebooks,.github,.pytest_cache,venv",
+            "--ignore=E203,W503",
             "--max-line-length=120"
         ]
 -   repo: https://github.com/pycqa/isort
