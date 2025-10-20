@@ -232,25 +232,25 @@ def _choose_policy_by_N(N: int) -> Tuple[str, int, int, Optional[int]]:
     """
     if N <= 10_000:
         # Start from the very top; include levels down until ≤ 1k clusters
-        return ("top_to_threshold", 0, 0, 500)
+        return "top_to_threshold", 0, 0, 500
     elif N <= 500_000:
         # Start around ≥10 clusters; descend up to 2 levels, but don't exceed 1k clusters
-        return ("start_and_descend", 50, 2, 1_000)
+        return "start_and_descend", 50, 2, 1_000
     elif N <= 1_000_000:
         # Start around 500 clusters; allow up to 2 levels; cap around 10k
-        return ("start_and_descend", 500, 2, 3_000)
+        return "start_and_descend", 500, 2, 3_000
     elif N <= 5_000_000:
         # Start ≥1000; go 2 levels if available
-        return ("start_and_descend", 3_000, 2, 5_000)
+        return "start_and_descend", 3_000, 2, 5_000
     elif N <= 10_000_000:
         # Start ≥1000; go 1 level
-        return ("start_and_descend", 15_000, 1, None)
+        return "start_and_descend", 15_000, 1, None
     elif N <= 30_000_000:
         # Start ≥2000; go 1 level
-        return ("start_and_descend", 20_000, 1, None)
+        return "start_and_descend", 20_000, 1, None
     else:
         # Very large: only one v2 level near ~50k, then pass to v1
-        return ("start_and_descend", 50_000, 0, None)
+        return "start_and_descend", 50_000, 0, None
 
 
 def choose_v2_level_block(
@@ -322,114 +322,3 @@ def choose_v2_level_block(
     f = s - steps  # finest included index
     e = s  # coarsest included index (the chosen start)
     return np.arange(f, e + 1, dtype=int)
-
-
-# ----------------------------------------------------------------------------------------------------#
-# -----  optional utilities  ------#
-
-
-def generate_hierarchical_labels(
-    N, levels, top_cluster_sizes, min_children=3, max_children=8, seed=None
-):
-    """
-    Generate a (N, levels) cluster label matrix with variable branching per cluster.
-
-    Parameters:
-    - N: number of data points
-    - levels: number of hierarchy levels (e.g., 4)
-    - top_cluster_sizes: list of proportions for top clusters (must sum to 1)
-    - min_children, max_children: range of subclusters per parent
-    - seed: random seed
-
-    Returns:
-    - c: (N, levels) integer array of hierarchical cluster labels
-    """
-
-    def get_partiton_labels(partitions):
-        partition_labels = []
-        partition_sizes = []
-        for partition in range(partitions.shape[1] - 1):
-            _, ig = np.unique(partitions[:, partition + 1], return_inverse=True)
-            u, ig_ = np.unique(partitions[:, partition], return_index=True)
-            partition_labels.append(ig[ig_])
-            partition_sizes.append(len(u))
-        num_top_level = len(np.unique(partitions[:, -1]))
-        return partition_labels + [np.zeros(num_top_level)], partition_sizes + [
-            num_top_level
-        ]
-
-    if seed is not None:
-        np.random.seed(seed)
-
-    c = np.full((N, levels), -1, dtype=int)
-
-    # Step 1: Top level cluster assignment
-    top_cluster_counts = (np.array(top_cluster_sizes) * N).astype(int)
-    top_cluster_counts[-1] = (
-        N - top_cluster_counts[:-1].sum()
-    )  # Adjust last to ensure sum = N
-    top_labels = []
-    offset = 0
-    for cluster_id, count in enumerate(top_cluster_counts):
-        c[offset : offset + count, -1] = cluster_id
-        top_labels.append((cluster_id, np.arange(offset, offset + count)))
-        offset += count
-
-    # Step 2: For each level from top to bottom, recursively split each cluster
-    label_counter = {level: {} for level in range(levels)}
-    label_counter[levels - 1] = {
-        cid: np.where(c[:, levels - 1] == cid)[0]
-        for cid in range(len(top_cluster_sizes))
-    }
-    next_cluster_id = 0
-
-    for level in reversed(range(levels - 1)):
-        label_counter[level] = {}
-        for parent_id, indices in label_counter[level + 1].items():
-            num_children = np.random.randint(min_children, max_children + 1)
-            child_sizes = np.random.multinomial(
-                len(indices), np.random.dirichlet(np.ones(num_children))
-            )
-            start = 0
-            for i, size in enumerate(child_sizes):
-                if size == 0:
-                    continue
-                child_indices = indices[start : start + size]
-                child_id = next_cluster_id
-                c[child_indices, level] = child_id
-                label_counter[level][child_id] = child_indices
-                next_cluster_id += 1
-                start += size
-    partition_labels, partition_sizes = get_partiton_labels(c)
-    # small fix for finch_like cluster labels starting from 0 onwards at each level
-    partitions = c
-    for col in range(c.shape[1]):
-        _, ig = np.unique(c[:, col], return_inverse=True)
-        partitions[:, col] = ig
-    return partitions, partition_sizes, partition_labels
-
-
-# -----------------------------
-def format_time(seconds):
-    """Format a duration in seconds into hr:min:sec or ms."""
-    if seconds < 1:
-        return f"{int(seconds * 1000)} ms"
-    h = int(seconds // 3600)
-    m = int((seconds % 3600) // 60)
-    s = int(seconds % 60)
-    if h > 0:
-        return f"{h}h {m}m {s}s"
-    elif m > 0:
-        return f"{m}m {s}s"
-    else:
-        return f"{s}s"
-
-
-def format_count(n):
-    """Format large sample counts into readable form."""
-    if n >= 1_000_000:
-        return f"{n / 1_000_000:.1f}M"
-    elif n >= 1_000:
-        return f"{n / 1_000:.1f}K"
-    else:
-        return str(n)
