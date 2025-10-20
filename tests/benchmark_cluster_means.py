@@ -1,4 +1,3 @@
-
 #!/usr/bin/env python3
 # This script benchmarks two methods for computing group means of a large matrix:
 # 1) np.add.at accumulation (_cluster_means_nd)
@@ -21,12 +20,12 @@
 
 import argparse
 import gc
+import multiprocessing as mp
 import os
 import platform
 import resource
 import sys
 import time
-import multiprocessing as mp
 from typing import Tuple
 
 import numpy as np
@@ -44,12 +43,11 @@ def _cluster_means_nd(X: np.ndarray, labels: np.ndarray):
     return uniq, counts, means
 
 
-
 def cool_mean(data: np.ndarray, partition: np.ndarray, return_counts=False):
     """Efficiently calculate the mean of all rows of a matrix M over a partition u. The number of classes in the
     partition is implicitly defined from the values of u.
 
-    
+
     Parameters
     ----------
         data: Matrix of dimensions (n, f) with n data points of f features each.
@@ -59,7 +57,7 @@ def cool_mean(data: np.ndarray, partition: np.ndarray, return_counts=False):
     Returns
     -------
         group_mean: A (k, f) matrix with the vectors averaged over the k partition values.
-    
+
     General version: works for arbitrary integer labels (gaps, unsorted, etc.).
     Returns (unique_labels_sorted, counts_per_label, means_in_that_order).
     """
@@ -75,6 +73,7 @@ def cool_mean(data: np.ndarray, partition: np.ndarray, return_counts=False):
     else:
         return means
 
+
 def _peak_kb_from_ru() -> float:
     ru = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
     # Linux gives KB, macOS gives bytes
@@ -83,7 +82,15 @@ def _peak_kb_from_ru() -> float:
     return float(ru)
 
 
-def _run_child(method: str, data_path: str, labels_path: str, n: int, f: int, dtype_str: str, q: mp.Queue):
+def _run_child(
+    method: str,
+    data_path: str,
+    labels_path: str,
+    n: int,
+    f: int,
+    dtype_str: str,
+    q: mp.Queue,
+):
     """Child process: reopen memmaps, run the method once, return timing + peak RSS."""
     try:
         dtype = np.dtype(dtype_str)
@@ -100,7 +107,14 @@ def _run_child(method: str, data_path: str, labels_path: str, n: int, f: int, dt
         elapsed = time.perf_counter() - start
         checksum = float(means.mean())  # tiny check to avoid optimizing away work
         peak_kb = _peak_kb_from_ru()
-        q.put({"ok": True, "elapsed_s": elapsed, "peak_rss_kb": peak_kb, "checksum": checksum})
+        q.put(
+            {
+                "ok": True,
+                "elapsed_s": elapsed,
+                "peak_rss_kb": peak_kb,
+                "checksum": checksum,
+            }
+        )
     except Exception as e:
         q.put({"ok": False, "error": repr(e)})
     finally:
@@ -112,7 +126,15 @@ def _run_child(method: str, data_path: str, labels_path: str, n: int, f: int, dt
         gc.collect()
 
 
-def run_and_measure(method: str, data_path: str, labels_path: str, n: int, f: int, dtype: np.dtype, repeats: int = 1):
+def run_and_measure(
+    method: str,
+    data_path: str,
+    labels_path: str,
+    n: int,
+    f: int,
+    dtype: np.dtype,
+    repeats: int = 1,
+):
     ctx = mp.get_context("spawn")
     results = []
     for r in range(repeats):
@@ -179,7 +201,10 @@ def create_memmap_dataset(
                 need_make_labels = False
                 print(f"[dataset] Reusing labels (validated contiguous 0..{k-1})")
             else:
-                print(f"[dataset] Existing labels invalid (min={un[0] if un.size>0 else 'NA'}, max={un[-1] if un.size>0 else 'NA'}, unique={un.size}). Will rebuild.")
+                print(
+                    f"[dataset] Existing labels invalid (min={un[0] if un.size>0 else 'NA'}, "
+                    f"max={un[-1] if un.size>0 else 'NA'}, unique={un.size}). Will rebuild."
+                )
                 need_make_labels = True
         except Exception:
             need_make_labels = True
@@ -210,7 +235,9 @@ def create_memmap_dataset(
 
     # Create/overwrite labels memmap with guaranteed contiguous coverage 0..k-1 (if needed)
     if n < k:
-        raise ValueError(f"n={n} must be >= k={k} to guarantee all labels appear at least once.")
+        raise ValueError(
+            f"n={n} must be >= k={k} to guarantee all labels appear at least once."
+        )
     if need_make_labels:
         y = np.memmap(labels_path, dtype=np.int32, mode="w+", shape=(n,))
         base = np.arange(k, dtype=np.int32)
@@ -223,14 +250,20 @@ def create_memmap_dataset(
         rng.shuffle(labels_full)
         y[:] = labels_full
         y.flush()
-        print(f"[dataset] Labels memmap written with all {k} labels present -> {labels_path}")
+        print(
+            f"[dataset] Labels memmap written with all {k} labels present -> {labels_path}"
+        )
     else:
         print(f"[dataset] Keeping existing labels -> {labels_path}")
     return data_path, labels_path
 
 
-def verify_small(n: int = 20_000, f: int = 128, k: int = 50, dtype: np.dtype = np.float32):
-    print(f"[verify] Running a small correctness check with n={n}, f={f}, k={k}, dtype={dtype}")
+def verify_small(
+    n: int = 20_000, f: int = 128, k: int = 50, dtype: np.dtype = np.float32
+):
+    print(
+        f"[verify] Running a small correctness check with n={n}, f={f}, k={k}, dtype={dtype}"
+    )
     rng = np.random.default_rng(42)
     X = rng.standard_normal((n, f), dtype=dtype)
     y = rng.integers(0, k, size=n, dtype=np.int32)
@@ -241,47 +274,110 @@ def verify_small(n: int = 20_000, f: int = 128, k: int = 50, dtype: np.dtype = n
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Benchmark group-mean methods (np.add.at vs CSR @ dense).")
-    parser.add_argument("--n", type=int, default=2_000_000, help="Number of rows (data points).")
-    parser.add_argument("--f", type=int, default=1_000, help="Number of features (columns).")
-    parser.add_argument("--k", type=int, default=1_000, help="Number of label classes (0..k-1).")
-    parser.add_argument("--dtype", type=str, choices=["float32", "float64"], default="float32", help="Data dtype.")
-    parser.add_argument("--repeats", type=int, default=1, help="Number of times to run each method.")
-    parser.add_argument("--memdir", type=str, default="memmaps", help="Directory to store memmap files.")
-    parser.add_argument("--rows-per-chunk", type=int, default=20_000, help="Rows per chunk when generating memmaps.")
-    parser.add_argument("--verify", action="store_true", help="Run a small correctness check first.")
-    parser.add_argument("--force-data", action="store_true", help="Recreate memmaps even if they exist.")
+    parser = argparse.ArgumentParser(
+        description="Benchmark group-mean methods (np.add.at vs CSR @ dense)."
+    )
+    parser.add_argument(
+        "--n", type=int, default=2_000_000, help="Number of rows (data points)."
+    )
+    parser.add_argument(
+        "--f", type=int, default=1_000, help="Number of features (columns)."
+    )
+    parser.add_argument(
+        "--k", type=int, default=1_000, help="Number of label classes (0..k-1)."
+    )
+    parser.add_argument(
+        "--dtype",
+        type=str,
+        choices=["float32", "float64"],
+        default="float32",
+        help="Data dtype.",
+    )
+    parser.add_argument(
+        "--repeats", type=int, default=1, help="Number of times to run each method."
+    )
+    parser.add_argument(
+        "--memdir", type=str, default="memmaps", help="Directory to store memmap files."
+    )
+    parser.add_argument(
+        "--rows-per-chunk",
+        type=int,
+        default=20_000,
+        help="Rows per chunk when generating memmaps.",
+    )
+    parser.add_argument(
+        "--verify", action="store_true", help="Run a small correctness check first."
+    )
+    parser.add_argument(
+        "--force-data", action="store_true", help="Recreate memmaps even if they exist."
+    )
     args = parser.parse_args()
 
-    print(f"Python {sys.version.split()[0]} | NumPy {np.__version__} | SciPy {sc.__version__}")
+    print(
+        f"Python {sys.version.split()[0]} | NumPy {np.__version__} | SciPy {sc.__version__}"
+    )
     print(f"OS: {platform.system()} {platform.release()}")
-    print(f"Config: n={args.n:,}, f={args.f:,}, k={args.k:,}, dtype={args.dtype}, repeats={args.repeats}")
+    print(
+        f"Config: n={args.n:,}, f={args.f:,}, k={args.k:,}, dtype={args.dtype}, repeats={args.repeats}"
+    )
 
     if args.verify:
         verify_small(dtype=np.dtype(args.dtype))
 
     # Create or reuse dataset memmaps
     data_path, labels_path = create_memmap_dataset(
-        args.memdir, args.n, args.f, args.k, dtype=np.dtype(args.dtype), rows_per_chunk=args.rows_per_chunk, force_data=args.force_data
+        args.memdir,
+        args.n,
+        args.f,
+        args.k,
+        dtype=np.dtype(args.dtype),
+        rows_per_chunk=args.rows_per_chunk,
+        force_data=args.force_data,
     )
 
     # Run benchmarks
-    res1 = run_and_measure("method1", data_path, labels_path, args.n, args.f, np.dtype(args.dtype), repeats=args.repeats)
+    res1 = run_and_measure(
+        "method1",
+        data_path,
+        labels_path,
+        args.n,
+        args.f,
+        np.dtype(args.dtype),
+        repeats=args.repeats,
+    )
     print("\n[method1] np.add.at (_cluster_means_nd)")
     print(f"  time: {res1['time_s_mean']:.3f} s ± {res1['time_s_std']:.3f}")
-    print(f"  peak RSS: {res1['peak_rss_mb_mean']:.1f} MB ± {res1['peak_rss_mb_std']:.1f}")
+    print(
+        f"  peak RSS: {res1['peak_rss_mb_mean']:.1f} MB ± {res1['peak_rss_mb_std']:.1f}"
+    )
     print(f"  checksum: {res1['checksum_mean']:.6g}")
 
-    res2 = run_and_measure("method2", data_path, labels_path, args.n, args.f, np.dtype(args.dtype), repeats=args.repeats)
+    res2 = run_and_measure(
+        "method2",
+        data_path,
+        labels_path,
+        args.n,
+        args.f,
+        np.dtype(args.dtype),
+        repeats=args.repeats,
+    )
     print("\n[method2] CSR @ dense (cool_mean)")
     print(f"  time: {res2['time_s_mean']:.3f} s ± {res2['time_s_std']:.3f}")
-    print(f"  peak RSS: {res2['peak_rss_mb_mean']:.1f} MB ± {res2['peak_rss_mb_std']:.1f}")
+    print(
+        f"  peak RSS: {res2['peak_rss_mb_mean']:.1f} MB ± {res2['peak_rss_mb_std']:.1f}"
+    )
     print(f"  checksum: {res2['checksum_mean']:.6g}")
 
     # Simple summary
-    speedup = res1["time_s_mean"] / res2["time_s_mean"] if res2["time_s_mean"] > 0 else float("nan")
-    print("\n[summary] speedup (method1 / method2): "
-          f"{speedup:.2f}x  (values >1 mean method2 is faster)")
+    speedup = (
+        res1["time_s_mean"] / res2["time_s_mean"]
+        if res2["time_s_mean"] > 0
+        else float("nan")
+    )
+    print(
+        "\n[summary] speedup (method1 / method2): "
+        f"{speedup:.2f}x  (values >1 mean method2 is faster)"
+    )
 
 
 if __name__ == "__main__":

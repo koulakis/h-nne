@@ -1,22 +1,28 @@
+import math
 from timeit import default_timer as timer
-from datetime import timedelta
+
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import math
-import matplotlib.pyplot as plt
+
 
 def time_function_call(f, *args, **kwargs):
     start = timer()
     result = f(*args, **kwargs)
     end = timer()
-    seconds=end-start
-    return result, seconds #timedelta(seconds=end-start)
+    seconds = end - start
+    return result, seconds  # timedelta(seconds=end-start)
 
 
-
-
-def plot_proj_grid(all_projections, figsize, save_experiment, out_plotgrid_path,
-                   scale_mode="normalize", padding=0.05, draw_colorbar=False):
+def plot_proj_grid(
+    all_projections,
+    figsize,
+    save_experiment,
+    out_plotgrid_path,
+    scale_mode="normalize",
+    padding=0.05,
+    draw_colorbar=False,
+):
     """
     scale_mode:
         - "normalize": rescale each dataset to [-1, 1] (fills panel; shapes preserved, absolute scale not).
@@ -41,10 +47,16 @@ def plot_proj_grid(all_projections, figsize, save_experiment, out_plotgrid_path,
     grid_figsize = (figsize[0] * n_cols, figsize[1] * n_rows)
 
     # Decide axis handling
-    share_axes = (scale_mode in ("normalize", "global"))
+    share_axes = scale_mode in ("normalize", "global")
 
-    fig, axes = plt.subplots(n_rows, n_cols, figsize=grid_figsize, squeeze=False,
-                             sharex=share_axes, sharey=share_axes)
+    fig, axes = plt.subplots(
+        n_rows,
+        n_cols,
+        figsize=grid_figsize,
+        squeeze=False,
+        sharex=share_axes,
+        sharey=share_axes,
+    )
 
     # Precompute global limits if needed
     if scale_mode == "global":
@@ -57,7 +69,7 @@ def plot_proj_grid(all_projections, figsize, save_experiment, out_plotgrid_path,
         if span == 0:
             span = 1.0
         # small padding
-        span *= (1 + 2 * padding)
+        span *= 1 + 2 * padding
         xmid, ymid = (xmin + xmax) / 2.0, (ymin + ymax) / 2.0
         global_xlim = (xmid - span / 2.0, xmid + span / 2.0)
         global_ylim = (ymid - span / 2.0, ymid + span / 2.0)
@@ -80,12 +92,20 @@ def plot_proj_grid(all_projections, figsize, save_experiment, out_plotgrid_path,
             scale = (1.0 - 2 * padding) * 2.0 / span_i  # map max span to 2 ([-1,1])
             X = (proj[:, 0] - cx) * scale
             Y = (proj[:, 1] - cy) * scale
-            sc = ax.scatter(X, Y, s=1, c=targ, cmap='Spectral', vmin=vmin, vmax=vmax)
+            sc = ax.scatter(X, Y, s=1, c=targ, cmap="Spectral", vmin=vmin, vmax=vmax)
             ax.set_xlim(-1, 1)
             ax.set_ylim(-1, 1)
 
         elif scale_mode == "global":
-            sc = ax.scatter(proj[:, 0], proj[:, 1], s=1, c=targ, cmap='Spectral', vmin=vmin, vmax=vmax)
+            sc = ax.scatter(
+                proj[:, 0],
+                proj[:, 1],
+                s=1,
+                c=targ,
+                cmap="Spectral",
+                vmin=vmin,
+                vmax=vmax,
+            )
             ax.set_xlim(global_xlim)
             ax.set_ylim(global_ylim)
 
@@ -98,8 +118,16 @@ def plot_proj_grid(all_projections, figsize, save_experiment, out_plotgrid_path,
             if span_i == 0:
                 span_i = 1.0
             # add padding
-            span_i *= (1 + 2 * padding)
-            sc = ax.scatter(proj[:, 0], proj[:, 1], s=1, c=targ, cmap='Spectral', vmin=vmin, vmax=vmax)
+            span_i *= 1 + 2 * padding
+            sc = ax.scatter(
+                proj[:, 0],
+                proj[:, 1],
+                s=1,
+                c=targ,
+                cmap="Spectral",
+                vmin=vmin,
+                vmax=vmax,
+            )
             ax.set_xlim(cx - span_i / 2.0, cx + span_i / 2.0)
             ax.set_ylim(cy - span_i / 2.0, cy + span_i / 2.0)
 
@@ -110,10 +138,12 @@ def plot_proj_grid(all_projections, figsize, save_experiment, out_plotgrid_path,
         if hasattr(ax, "set_box_aspect"):
             ax.set_box_aspect(1)
         else:
-            ax.set_aspect('equal', adjustable='box')
+            ax.set_aspect("equal", adjustable="box")
 
         ax.set(xticks=[], yticks=[])
-        ax.tick_params(axis='both', which='both', length=0, labelbottom=False, labelleft=False)
+        ax.tick_params(
+            axis="both", which="both", length=0, labelbottom=False, labelleft=False
+        )
         ax.set_title(item.get("title", f"Dataset {idx}"), fontsize=9)
 
         last_scatter = sc
@@ -121,7 +151,7 @@ def plot_proj_grid(all_projections, figsize, save_experiment, out_plotgrid_path,
     # hide any unused axes
     for j in range(n, n_rows * n_cols):
         r, c = divmod(j, n_cols)
-        axes[r, c].axis('off')
+        axes[r, c].axis("off")
 
     if draw_colorbar:
         # one colorbar for all
@@ -131,13 +161,12 @@ def plot_proj_grid(all_projections, figsize, save_experiment, out_plotgrid_path,
     fig.tight_layout()
 
     if save_experiment:
-        fig.savefig(out_plotgrid_path, dpi=300, bbox_inches='tight')
+        fig.savefig(out_plotgrid_path, dpi=300, bbox_inches="tight")
 
     return plt
 
 
-
-####----------------- voerview df builder helpers ---------------------##
+# ###----------------- voerview df builder helpers ---------------------##
 def build_scores_overview(
     scores_by_dataset,
     acc_col="KNN_ACC",
@@ -270,9 +299,6 @@ def flatten_multiindex_for_csv(df: pd.DataFrame, sep=" | "):
     out.columns = flat_cols
     return out
 
-##------------------------------##
-import pandas as pd
-import numpy as np
 
 # --- helpers from before (unchanged) ---
 def _safe_read_overview_csv(path: str) -> pd.DataFrame:
@@ -280,12 +306,17 @@ def _safe_read_overview_csv(path: str) -> pd.DataFrame:
         df = pd.read_csv(path, header=[0, 1], index_col=0)
         if isinstance(df.columns, pd.MultiIndex) and df.columns.nlevels == 2:
             top = df.columns.get_level_values(0)
-            top = top.map(lambda x: "" if (pd.isna(x) or str(x).startswith("Unnamed")) else x)
-            df.columns = pd.MultiIndex.from_arrays([top, df.columns.get_level_values(1)])
+            top = top.map(
+                lambda x: "" if (pd.isna(x) or str(x).startswith("Unnamed")) else x
+            )
+            df.columns = pd.MultiIndex.from_arrays(
+                [top, df.columns.get_level_values(1)]
+            )
             return df
     except Exception:
         pass
     return pd.read_csv(path, header=0, index_col=0)
+
 
 def _get_col(df: pd.DataFrame, key_tuple, extra_fallbacks=()):
     top, leaf = key_tuple
@@ -302,6 +333,7 @@ def _get_col(df: pd.DataFrame, key_tuple, extra_fallbacks=()):
             return df[name]
     return pd.Series(index=df.index, dtype=object)
 
+
 # --- main combiner (with clean CSV header) ---
 def combine_method_overviews_from_csv(
     method_csvs,
@@ -310,8 +342,8 @@ def combine_method_overviews_from_csv(
     trust_col="trustworthiness",
     proj_time_col="proj_time",
     knn_group_name="KNN accuracy",
-    suppress_header_names=True,   # <- remove 'metric', 'method', 'dataset' row
-    write_index=True,             # keep dataset names as first column
+    suppress_header_names=True,  # <- remove 'metric', 'method', 'dataset' row
+    write_index=True,  # keep dataset names as first column
 ):
     # normalize input
     if isinstance(method_csvs, dict):
@@ -352,7 +384,9 @@ def combine_method_overviews_from_csv(
         data_blocks[(proj_time_col, method_name)] = s
 
     combined = pd.DataFrame(data_blocks, index=all_idx)
-    combined.columns = pd.MultiIndex.from_tuples(combined.columns, names=["metric", "method"])
+    combined.columns = pd.MultiIndex.from_tuples(
+        combined.columns, names=["metric", "method"]
+    )
 
     # order metrics/methods
     metric_cat = pd.CategoricalIndex(
@@ -369,7 +403,9 @@ def combine_method_overviews_from_csv(
 
     # --- remove level/index names so CSV has no extra header row ---
     if suppress_header_names:
-        combined.columns = pd.MultiIndex.from_tuples(combined.columns, names=[None, None])
+        combined.columns = pd.MultiIndex.from_tuples(
+            combined.columns, names=[None, None]
+        )
         combined.index.name = None
 
     # --- write CSV ---
@@ -377,4 +413,3 @@ def combine_method_overviews_from_csv(
     combined.to_csv(output_csv_path, index=write_index, index_label=index_label)
 
     return combined
-

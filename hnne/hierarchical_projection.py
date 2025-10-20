@@ -1,25 +1,37 @@
 from enum import Enum
+
 import numpy as np
+from scipy.spatial import cKDTree
 from sklearn.decomposition import PCA
 from sklearn.metrics import pairwise
 from sklearn.preprocessing import StandardScaler
-from hnne.cool_functions import cool_max_radius, cool_max, cool_mean
+
+from hnne.cool_functions import cool_max_radius, cool_mean
 from hnne.point_spreading import norm_angles, norm_angles_3d
 from hnne.v2_packer import pack_hierarchy_iterative_k_nd
-from hnne.v2_utils import layout_to_level_arrays, rubust_scale_per_parent, partition_update, choose_v2_level_block, HNNEVersion, _normalize_hnne_version
-from scipy.spatial import cKDTree
+from hnne.v2_utils import (
+    HNNEVersion,
+    _normalize_hnne_version,
+    choose_v2_level_block,
+    layout_to_level_arrays,
+    partition_update,
+    rubust_scale_per_parent,
+)
+
 try:
     from pynndescent import NNDescent
+
     _HAS_NND = True
 except Exception:
     _HAS_NND = False
+
 
 class PreliminaryEmbedding(str, Enum):
     pca = "pca"
     pca_centroids = "pca_centroids"
     random_linear = "random_linear"
 
-    
+
 def project_with_pca_centroids(
     data,
     partitions,
@@ -77,7 +89,7 @@ def project_points(
         np.random.seed(random_state)
         random_components = np.random.random((data.shape[1], dim))
         projected_points = np.dot(data, random_components)
-    
+
     else:
         raise ValueError(f"Invalid preliminary embedding: {preliminary_embedding}")
 
@@ -101,17 +113,17 @@ def move_projected_points_to_anchors_v2(
     *,
     radius: float = 0.9,
     anchor_radii: np.ndarray | None = None,
-    real_nn_threshold: int = 40000,   # kept for API compat (unused with batching)
+    real_nn_threshold: int = 40000,  # kept for API compat (unused with batching)
     verbose: bool = False,
     # --- safe & robust knobs (sane defaults) ---
-    k_radius: int = 2,                # base radius from median of k-NN distances
+    k_radius: int = 2,  # base radius from median of k-NN distances
     clip_quantiles: tuple[float, float] | None = None,  # e.g. (0.02, 0.98); None = off
-    cap_eps_frac: float = 1e-3,       # tiny epsilon in half-NN cap (relative to median d1)
+    cap_eps_frac: float = 1e-3,  # tiny epsilon in half-NN cap (relative to median d1)
     use_pairwise_small_k: bool = True,
     small_k_cutoff: int = 100,
-    nn_batch_size: int = 200_000,      # chunk size for KDTree.query
+    nn_batch_size: int = 200_000,  # chunk size for KDTree.query
     use_robust_scaling=True,
-    ):
+):
     """
     Map points into anchor-centered discs with vectorized scaling:
       mapped = anchors_per_point + r_anchor_per_point * (points_centered / points_max_radius)
@@ -120,7 +132,7 @@ def move_projected_points_to_anchors_v2(
       - Base radius from exact k-NN distances (median over k_radius neighbors),
       - Optional quantile clipping (cosmetic; never enlarges past cap),
       - Symmetric half-1NN cap to prevent cross-cluster mixing.
-   
+
 
     Robust Scaling: Differences vs. original:
       - If `use_robust_scaling=True`, per-parent scale uses mean + λ·std of
@@ -157,30 +169,30 @@ def move_projected_points_to_anchors_v2(
 
             if use_pairwise_small_k and K <= small_k_cutoff:
                 # ----- small-K exact pairwise path -----
-                D2 = ((anchors[:, None, :] - anchors[None, :, :])**2).sum(axis=2)
+                D2 = ((anchors[:, None, :] - anchors[None, :, :]) ** 2).sum(axis=2)
                 np.fill_diagonal(D2, np.inf)
 
                 kth = min(kq - 1, K - 1)
                 idx = np.argpartition(D2, kth=kth, axis=1)[:, :kth]  # (K, <=kq-1)
                 rows = np.arange(K)[:, None]
-                Dsmall = D2[rows, idx]                               # (K, <=kq-1)
+                Dsmall = D2[rows, idx]  # (K, <=kq-1)
 
                 # sort those columns
                 order_small = np.argsort(Dsmall, axis=1)
                 idx = idx[rows, order_small]
-                nbr_d = np.sqrt(Dsmall[rows, order_small])           # (K, M), M<=kq-1
+                nbr_d = np.sqrt(Dsmall[rows, order_small])  # (K, M), M<=kq-1
 
                 # 1-NN and base (median of first kk neighbors)
-                M = nbr_d.shape[1]          # actual neighbors available
-                d1 = nbr_d[:, 0]            # (K,)
-                nn1 = idx[:, 0]             # (K,)
+                M = nbr_d.shape[1]  # actual neighbors available
+                d1 = nbr_d[:, 0]  # (K,)
+                nn1 = idx[:, 0]  # (K,)
 
                 kk = int(min(k_radius, M))  # how many to use for base
                 if kk <= 1:
                     base_vec = nbr_d[:, 0]
                 else:
                     base_vec = np.median(nbr_d[:, :kk], axis=1)
-                base = base_vec[:, None]    # (K,1)
+                base = base_vec[:, None]  # (K,1)
 
                 # handle exact duplicates: if d1≈0 and a 2-NN exists, use it
                 tiny = d1 <= 1e-12
@@ -199,7 +211,9 @@ def move_projected_points_to_anchors_v2(
                 nn1 = np.empty(K, dtype=int)
                 base = np.empty((K, 1), dtype=float)
 
-                kk = max(1, int(min(k_radius, kq - 1)))  # neighbors for base (excl. self)
+                kk = max(
+                    1, int(min(k_radius, kq - 1))
+                )  # neighbors for base (excl. self)
 
                 for s in range(0, K, nn_batch_size):
                     e = min(K, s + nn_batch_size)
@@ -253,34 +267,41 @@ def move_projected_points_to_anchors_v2(
             raise ValueError("anchor_radii length mismatch")
 
     # ---------- vectorized mapping of points into their anchors ----------
-    anchors_per_point = anchors[part]                      # (N,d)
-    points_mean_per_partition = cool_mean(points, part)    # (K,d)
+    anchors_per_point = anchors[part]  # (N,d)
+    points_mean_per_partition = cool_mean(points, part)  # (K,d)
     points_centered = points - points_mean_per_partition[part]
-    anchor_radii_per_point = anchor_radii[part]                 # (N,1)
+    anchor_radii_per_point = anchor_radii[part]  # (N,1)
     anchors_max_radius = cool_max_radius(points_centered, part)  # (K,)
     anchors_max_radius = np.where(anchors_max_radius == 0.0, 1.0, anchors_max_radius)
-    
+
     if use_robust_scaling:
         # per-point norms
-        pts_scaled = rubust_scale_per_parent(points_centered, part, sigma_mult=2.5, gamma=0.8) 
+        pts_scaled = rubust_scale_per_parent(
+            points_centered, part, sigma_mult=2.5, gamma=0.8
+        )
     else:
-        points_max_radius = anchors_max_radius[part][:, None]       # (N,1)            
+        points_max_radius = anchors_max_radius[part][:, None]  # (N,1)
         pts_scaled = points_centered / points_max_radius
-    
+
     # final move
     mapped = anchors_per_point + anchor_radii_per_point * pts_scaled
 
     return (
-        mapped,                        # (N,d)
-        anchor_radii[:, 0],            # (K,)
-        points_mean_per_partition,     # (K,d)
-        anchors_max_radius,            # (K,)
+        mapped,  # (N,d)
+        anchor_radii[:, 0],  # (K,)
+        points_mean_per_partition,  # (K,d)
+        anchors_max_radius,  # (K,)
     )
 
 
-
 def move_projected_points_to_anchors_v1(
-    points, anchors, partition, radius=0.9, anchor_radii=None, real_nn_threshold=30000, verbose=False
+    points,
+    anchors,
+    partition,
+    radius=0.9,
+    anchor_radii=None,
+    real_nn_threshold=30000,
+    verbose=False,
 ):
     if anchor_radii is None:
         if anchors.shape[0] <= real_nn_threshold:
@@ -297,7 +318,7 @@ def move_projected_points_to_anchors_v1(
             )
             nns, _ = knn_index.neighbor_graph
             nearest_neighbor_idx = nns[:, 1]
-    
+
         anchor_distances_from_nns = np.linalg.norm(
             anchors - anchors[nearest_neighbor_idx], axis=1, keepdims=True
         )
@@ -321,7 +342,9 @@ def move_projected_points_to_anchors_v1(
         anchors_max_radius,
     )
 
+
 # ---------------------- Integrated multi_step_projection ---------------------- #
+
 
 def multi_step_projection(
     data,
@@ -345,17 +368,17 @@ def multi_step_projection(
     """
     h-NNE v2: integrate fast hierarchical packing at the top of the hierarchy
     and seed the classic h-NNE descent with those anchors/radii.
-    
-    :: hnne_version selects between the legacy v1 projection and the packing-aware v2 pipeline (default). 
-    
+
+    :: hnne_version selects between the legacy v1 projection and the packing-aware v2 pipeline (default).
+
     Returns:
       curr_anchors, anchor_radii, moved_anchors, pca, scaler,
       points_means, points_max_radii, inflation_params_list,
       v2_layout
     """
     ver = _normalize_hnne_version(hnne_version)
-    use_v2 = (ver == "v2")
-    
+    use_v2 = ver == "v2"
+
     # 0) Preliminary projection
     projected_points, pca, scaler = project_points(
         data,
@@ -393,7 +416,9 @@ def multi_step_projection(
     if use_v2:
         # Ensure partition_sizes present and consistent
         if partition_sizes is None:
-            partition_sizes = [len(set(partitions[:, i])) for i in range(partitions.shape[1])]
+            partition_sizes = [
+                len(set(partitions[:, i])) for i in range(partitions.shape[1])
+            ]
         ps = np.asarray(partition_sizes, dtype=int)
 
         # Respect user's preferred start if provided (and optional requested_partition)
@@ -407,7 +432,9 @@ def multi_step_projection(
             start_cluster_view = int(prefered_num_clust)
 
         # If the user explicitly provided an integer start below top (coarsest) size, bump to top and warn
-        if (isinstance(start_cluster_view, (int, np.integer))) and (start_cluster_view < ps[-1]):
+        if (isinstance(start_cluster_view, (int, np.integer))) and (
+            start_cluster_view < ps[-1]
+        ):
             print(
                 f"[INFO]: The required start_cluster_view is smaller than the default top level "
                 f"of the FINCH hierarchy (i.e. {ps[-1]} clusters). "
@@ -419,7 +446,11 @@ def multi_step_projection(
         indices_v2 = choose_v2_level_block(ps, N, start_cluster_view=start_cluster_view)
 
         # (Optional legacy max v2 level: only apply if user *explicitly* set a small v2 level threshold)
-        if isinstance(v2_size_threshold, (int, np.integer)) and v2_size_threshold > 0 and start_cluster_view != "auto":
+        if (
+            isinstance(v2_size_threshold, (int, np.integer))
+            and v2_size_threshold > 0
+            and start_cluster_view != "auto"
+        ):
             idx_keep = np.where(ps <= int(v2_size_threshold))[0]
             # intersect while preserving contiguity if possible
             if idx_keep.size:
@@ -432,17 +463,22 @@ def multi_step_projection(
             # Split into v2 slice and the finer remainder for the classic loop
             idx0 = int(indices_v2[0])  # boundary (finest among v2)
             partitions_v2 = partitions[:, indices_v2]
-            parts_for_loop = partitions[:, :idx0 + 1]
+            parts_for_loop = partitions[:, : idx0 + 1]
 
             if verbose:
-                print(f"[v2] packing levels (fine→coarse) indices {indices_v2.tolist()} "
-                      f"with sizes {ps[indices_v2].tolist()}")
+                print(
+                    f"[v2] packing levels (fine→coarse) indices {indices_v2.tolist()} "
+                    f"with sizes {ps[indices_v2].tolist()}"
+                )
 
             # v2 pack (ND-enabled)
             v2_layout = pack_hierarchy_iterative_k_nd(
-                projected_points, partitions_v2,
-                k=1, outer_sweeps=1,
-                mass_mode_2d="area", mass_mode_nd="powerD",
+                projected_points,
+                partitions_v2,
+                k=1,
+                outer_sweeps=1,
+                mass_mode_2d="area",
+                mass_mode_nd="powerD",
             )
             anchors_by_level, radii_by_level = layout_to_level_arrays(v2_layout)
 
@@ -460,11 +496,15 @@ def multi_step_projection(
 
                 # Prepare the finer stack for the classic loop
                 projected_anchors_loop = _projected_anchors_for(parts_for_loop)
-                reversed_partition_range = list(reversed(range(parts_for_loop.shape[1])))
+                reversed_partition_range = list(
+                    reversed(range(parts_for_loop.shape[1]))
+                )
 
             else:
                 if verbose:
-                    print("[v2] layout empty after packing; falling back to vanilla pipeline.")
+                    print(
+                        "[v2] layout empty after packing; falling back to vanilla pipeline."
+                    )
 
     # 2) Choose mapping kernel (v1 or optimized v2)
     if ver == "v1":

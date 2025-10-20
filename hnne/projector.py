@@ -1,6 +1,7 @@
 import pickle
 from dataclasses import dataclass
-from typing import Any, List, Optional, Dict, Tuple, Literal, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
+
 import numpy as np
 from pynndescent import NNDescent
 from sklearn import metrics
@@ -11,6 +12,7 @@ from sklearn.preprocessing import StandardScaler
 from hnne.finch_clustering import FINCH
 from hnne.hierarchical_projection import PreliminaryEmbedding, multi_step_projection
 from hnne.v2_utils import HNNEVersion, _normalize_hnne_version
+
 
 @dataclass
 class HierarchyParameters:
@@ -34,98 +36,95 @@ class ProjectionParameters:
     knn_index_transform: Optional[Any]
 
 
-
-
-
 class HNNE(BaseEstimator):
     """Hierarchical 1-Nearest Neighbor graph based Embedding
 
-    A fast hierarchical dimensionality reduction algorithm.
+     A fast hierarchical dimensionality reduction algorithm.
 
-    Parameters
-    ----------
-    n_components: int (default 2)
-        The dimension of the target space of the projection.
+     Parameters
+     ----------
+     n_components: int (default 2)
+         The dimension of the target space of the projection.
 
-    metric: str (default 'cosine')
-        The metric used to compute the distances when forming the h-nne hierarchy levels. Its value should be supported
-        by both sklearn and pynndescent. Some possible values: 'cityblock', 'cosine', 'euclidean',
-        'l1', 'l2', 'manhattan'.
+     metric: str (default 'cosine')
+         The metric used to compute the distances when forming the h-nne hierarchy levels. Its value should be supported
+         by both sklearn and pynndescent. Some possible values: 'cityblock', 'cosine', 'euclidean',
+         'l1', 'l2', 'manhattan'.
 
-    radius: float (default 0.45)
-        The radius used to place points around centroids as a portion of the distance between nearest neighbor anchors.
-        Though the theoretical value which guarantees no overlaps between anchor points is 0.2, 0.45 is a value which
-        provides in practice denser visualizations with minimal loss in performance.
+     radius: float (default 0.45)
+         The radius used to place points around centroids as a portion of the distance between nearest neighbor anchors.
+         Though the theoretical value which guarantees no overlaps between anchor points is 0.2, 0.45 is a value which
+         provides in practice denser visualizations with minimal loss in performance.
 
-    ann_threshold: int (default 20000)
-        A threshold above which approximate nearest neighbors will be computed instead of real nearest neighbors when
-        building the levels of h-nne.
+     ann_threshold: int (default 20000)
+         A threshold above which approximate nearest neighbors will be computed instead of real nearest neighbors when
+         building the levels of h-nne.
 
-    preliminary_embedding: str (default 'pca')
-        The preliminary embedding used to initiate h-nne. In terms of performance pca > pca_centroids > random_linear
-        and in terms of speed performance pca < pca_centroids < random_linear.
+     preliminary_embedding: str (default 'pca')
+         The preliminary embedding used to initiate h-nne. In terms of performance pca > pca_centroids > random_linear
+         and in terms of speed performance pca < pca_centroids < random_linear.
 
-    random_state: Optional[int] (default None)
-        An optional random state for reproducibility purposes. It fixes the state of PCA and ANN.
-    
-    prefered_num_clust: Optional[int] (default None)
-        preferred clusters view. set to number of ground truth classes or clusters in your data.
-    
-   hnne_version : Literal["v1","v2","version_1","version_2","1","2","auto"], optional (default "version_2")
-        Selects which h-NNE pipeline variant to run.
+     random_state: Optional[int] (default None)
+         An optional random state for reproducibility purposes. It fixes the state of PCA and ANN.
 
-        - **"v2"/"version_2"/"2"**: Use the packing-aware v2 pipeline. A small set of
-          coarse FINCH levels is laid out with the fast hierarchical packing layer
-          (2D fast path or ND fallback) and the resulting anchor radii seed the first
-          descent step. Subsequent levels proceed with the standard h-NNE update.
-        - **"v1"/"version_1"/"1"**: Legacy behavior. No packing layer; points are
-          mapped into 1-NN–capped basins around anchors at each level.
-        - **"auto"**: Currently resolves to v2 (recommended). Kept for forward
-          compatibility if we later introduce adaptive selection.
+     prefered_num_clust: Optional[int] (default None)
+         preferred clusters view. set to number of ground truth classes or clusters in your data.
 
-        The value is normalized internally (case-insensitive); synonyms above all map
-        to one of {"v1","v2"}. When "v1" is selected, any v2-specific knobs are ignored.
+    hnne_version : Literal["v1","v2","version_1","version_2","1","2","auto"], optional (default "version_2")
+         Selects which h-NNE pipeline variant to run.
 
-    start_cluster_view : {"auto", int, None} (default "auto")
-        Controls where the v2 packing starts in the FINCH hierarchy (coarse→fine).
+         - **"v2"/"version_2"/"2"**: Use the packing-aware v2 pipeline. A small set of
+           coarse FINCH levels is laid out with the fast hierarchical packing layer
+           (2D fast path or ND fallback) and the resulting anchor radii seed the first
+           descent step. Subsequent levels proceed with the standard h-NNE update.
+         - **"v1"/"version_1"/"1"**: Legacy behavior. No packing layer; points are
+           mapped into 1-NN–capped basins around anchors at each level.
+         - **"auto"**: Currently resolves to v2 (recommended). Kept for forward
+           compatibility if we later introduce adaptive selection.
 
-        - **"auto"/None**: Pick a start/end band automatically from dataset size *N*
-          (coarse rule-of-thumb policy). This chooses a coarse start level and how
-          many child levels to include before handing off to the classic descent.
-        - **int**: Desired starting number of clusters; the nearest FINCH level is
-          used. The number of child levels to include is still chosen automatically
-          from *N*.
+         The value is normalized internally (case-insensitive); synonyms above all map
+         to one of {"v1","v2"}. When "v1" is selected, any v2-specific knobs are ignored.
 
-    v2_size_threshold : Optional[int] (default None)
-        Upper bound on the cluster count for levels to be packed by v2. If `None`,
-        the automatic policy (based on *N*) selects a reasonable end level. If set,
-        the finest level used by v2 is the finest level whose cluster count is
-        `<= v2_size_threshold`. Only used when `hnne_version` is v2/"auto".
+     start_cluster_view : {"auto", int, None} (default "auto")
+         Controls where the v2 packing starts in the FINCH hierarchy (coarse→fine).
 
-    Attributes
-    ----------
-    min_size_top_level: int (default 3)
-        The minimum number of centroids existing on the top level of the hierarchy. To achieve this minimum, the top
-        levels which have fewer centroids are removed.
-    
-    faiss_threshold: int | None = 10_000_000
-    faiss_use_gpu: bool = False
-        For very large data size > faiss_threshold, FINCH use faiss for computing 1-nn
-    
-    hierarchy_parameters: Optional[HierarchyParameters]
-        An object holding the parameters which encode the h-nne hierarchy. They are saved during fitting and can be
-        reused both during projecting new points or projecting again with different parameters, e.g. n_components.
+         - **"auto"/None**: Pick a start/end band automatically from dataset size *N*
+           (coarse rule-of-thumb policy). This chooses a coarse start level and how
+           many child levels to include before handing off to the classic descent.
+         - **int**: Desired starting number of clusters; the nearest FINCH level is
+           used. The number of child levels to include is still chosen automatically
+           from *N*.
 
-    References
-    ----------
-        The code implements the h-NNE algorithm described in our CVPR 2022 paper:
-        [1] M. Saquib Sarfraz*, Marios Koulakis*, Constantin Seibold, Rainer Stiefelhagen.
-        Hierarchical Nearest Neighbor Graph Embedding for Efficient Dimensionality Reduction. CVPR 2022.
-        https://openaccess.thecvf.com/content/CVPR2022/papers/Sarfraz_Hierarchical_Nearest_Neighbor_Graph_Embedding_for_Efficient_Dimensionality_Reduction_CVPR_2022_paper.pdf
+     v2_size_threshold : Optional[int] (default None)
+         Upper bound on the cluster count for levels to be packed by v2. If `None`,
+         the automatic policy (based on *N*) selects a reasonable end level. If set,
+         the finest level used by v2 is the finest level whose cluster count is
+         `<= v2_size_threshold`. Only used when `hnne_version` is v2/"auto".
 
-        Please contact the authors below for licensing information.
-        Marios Koulakis (marios.koulakis@gmail.com)
-        M. Saquib Sarfraz (saquibsarfraz@gmail.com)
+     Attributes
+     ----------
+     min_size_top_level: int (default 3)
+         The minimum number of centroids existing on the top level of the hierarchy. To achieve this minimum, the top
+         levels which have fewer centroids are removed.
+
+     faiss_threshold: int | None = 10_000_000
+     faiss_use_gpu: bool = False
+         For very large data size > faiss_threshold, FINCH use faiss for computing 1-nn
+
+     hierarchy_parameters: Optional[HierarchyParameters]
+         An object holding the parameters which encode the h-nne hierarchy. They are saved during fitting and can be
+         reused both during projecting new points or projecting again with different parameters, e.g. n_components.
+
+     References
+     ----------
+         The code implements the h-NNE algorithm described in our CVPR 2022 paper:
+         [1] M. Saquib Sarfraz*, Marios Koulakis*, Constantin Seibold, Rainer Stiefelhagen.
+         Hierarchical Nearest Neighbor Graph Embedding for Efficient Dimensionality Reduction. CVPR 2022.
+         https://openaccess.thecvf.com/content/CVPR2022/papers/Sarfraz_Hierarchical_Nearest_Neighbor_Graph_Embedding_for_Efficient_Dimensionality_Reduction_CVPR_2022_paper.pdf
+
+         Please contact the authors below for licensing information.
+         Marios Koulakis (marios.koulakis@gmail.com)
+         M. Saquib Sarfraz (saquibsarfraz@gmail.com)
     """
 
     def __init__(
@@ -141,9 +140,7 @@ class HNNE(BaseEstimator):
         start_cluster_view: Union[str, int, None] = "auto",
         v2_size_threshold: Optional[int] = None,
         faiss_threshold: int = 10_000_000,
-        faiss_use_gpu: bool = False
-        
-        
+        faiss_use_gpu: bool = False,
     ):
         self.n_components = n_components
         self.radius = radius
@@ -151,7 +148,7 @@ class HNNE(BaseEstimator):
         self.random_state = random_state
         self.prefered_num_clust = prefered_num_clust
         self.hnne_version = _normalize_hnne_version(hnne_version)
-        self.v2_size_threshold =  v2_size_threshold
+        self.v2_size_threshold = v2_size_threshold
         self.start_cluster_view = start_cluster_view
         try:
             preliminary_embedding = PreliminaryEmbedding[preliminary_embedding]
@@ -160,22 +157,28 @@ class HNNE(BaseEstimator):
                 f"Invalid preliminary embedding: {preliminary_embedding}. "
                 f'Please select one from: {", ".join(PreliminaryEmbedding)}.'
             )
-           
+
         self.preliminary_embedding = preliminary_embedding
         self.metric = metric
         self.min_size_top_level: int = 3
-        
-        #faiss
+
+        # faiss
         self.faiss_threshold = faiss_threshold
         self.faiss_use_gpu = faiss_use_gpu
-        #--
+        # --
         self.hierarchy_parameters: Optional[HierarchyParameters] = None
         self.projection_parameters: Optional[ProjectionParameters] = None
 
     def fit_only_hierarchy(self, X: np.ndarray, verbose: bool = False):
         if verbose:
             print("Building h-NNE hierarchy using FINCH...")
-        [partitions, requested_partition, partition_sizes, partition_labels, lowest_level_centroids] = FINCH(
+        [
+            partitions,
+            requested_partition,
+            partition_sizes,
+            partition_labels,
+            lowest_level_centroids,
+        ] = FINCH(
             data=X,
             req_clust=self.prefered_num_clust,
             ensure_early_exit=False,
@@ -206,7 +209,11 @@ class HNNE(BaseEstimator):
         partition_labels = partition_labels[:max_partition_idx]
 
         self.hierarchy_parameters = HierarchyParameters(
-            partitions, requested_partition, partition_sizes, partition_labels, lowest_level_centroids
+            partitions,
+            requested_partition,
+            partition_sizes,
+            partition_labels,
+            lowest_level_centroids,
         )
 
         return partitions, requested_partition, partition_sizes, partition_labels
@@ -244,7 +251,7 @@ class HNNE(BaseEstimator):
             if verbose:
                 print("Skipping the hierarchy construction as it is already available.")
             hparams = self.hierarchy_parameters
-            partitions,requested_partition, partition_sizes, partition_labels = (
+            partitions, requested_partition, partition_sizes, partition_labels = (
                 hparams.partitions,
                 hparams.requested_partition,
                 hparams.partition_sizes,
@@ -252,8 +259,8 @@ class HNNE(BaseEstimator):
             )
 
         else:
-            [partitions, requested_partition, partition_sizes, partition_labels] = self.fit_only_hierarchy(
-                X, verbose=verbose
+            [partitions, requested_partition, partition_sizes, partition_labels] = (
+                self.fit_only_hierarchy(X, verbose=verbose)
             )
 
         if (override_n_components is not None) and (
@@ -288,7 +295,7 @@ class HNNE(BaseEstimator):
             preliminary_embedding=self.preliminary_embedding,
             prefered_num_clust=self.prefered_num_clust,
             requested_partition=requested_partition,
-            hnne_version = self.hnne_version,
+            hnne_version=self.hnne_version,
             v2_size_threshold=self.v2_size_threshold,
             start_cluster_view=self.start_cluster_view,
             random_state=self.random_state,
