@@ -11,7 +11,7 @@ from pynndescent import NNDescent
 from sklearn import metrics
 
 from hnne.cool_functions import cool_mean
-from hnne.finch_utils import _default_faiss_kwargs, faiss_top1
+from hnne.finch.finch_utils import _default_faiss_kwargs, faiss_top1
 
 
 def clust_rank(

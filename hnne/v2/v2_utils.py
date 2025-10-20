@@ -7,7 +7,7 @@ from hnne.cool_functions import cool_max, cool_mean
 HNNEVersion = Literal["v1", "v2", "version_1", "version_2", "1", "2", "auto"]
 
 
-def _normalize_hnne_version(
+def normalize_hnne_version(
     hnne_version: HNNEVersion = "version_2",
 ) -> Literal["v1", "v2"]:
     v = str(hnne_version).lower().strip()
