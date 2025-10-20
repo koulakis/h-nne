@@ -15,7 +15,7 @@ class TestHNNE(unittest.TestCase):
         cls.inception_dataset_levels = generate_inception_graph_dataset()
 
     def test_projector_smoke_test(self):
-        hnne = HNNE()
+        hnne = HNNE(hnne_version="v1")
         hnne.fit_transform(self.dummy_data_10, verbose=False)
 
     def test_projector_inception_dataset(self):
@@ -23,7 +23,7 @@ class TestHNNE(unittest.TestCase):
 
         # Pick a small enough radius for consistency and the Euclidean distance to match the
         # real 2D coordinates.
-        hnne = HNNE(radius=0.2, metric="euclidean")
+        hnne = HNNE(hnne_version="v1", radius=0.2, metric="euclidean")
         _ = hnne.fit(inception_dataset, verbose=False)
 
         expected_partitions = np.stack(
@@ -47,7 +47,7 @@ class TestHNNE(unittest.TestCase):
     ):
         dummy_data = self.dummy_data_10
 
-        hnne = HNNE(radius=0.2)
+        hnne = HNNE(hnne_version="v1", radius=0.2)
         projection_original = hnne.fit(dummy_data, verbose=False)
         projection_with_transform = hnne.transform(dummy_data)
         second_projection_with_transform = hnne.transform(dummy_data)
@@ -69,7 +69,7 @@ class TestHNNE(unittest.TestCase):
 
         # Pick a small enough radius for consistency and the Euclidean distance to match the
         # real 2D coordinates.
-        hnne = HNNE(radius=0.2, metric="euclidean")
+        hnne = HNNE(hnne_version="v1", radius=0.2, metric="euclidean")
         projection_original = hnne.fit(inception_dataset, verbose=False)
 
         projection_with_transform = hnne.transform(inception_dataset)
@@ -81,23 +81,23 @@ class TestHNNE(unittest.TestCase):
         )
 
     def test_default_n_components(self):
-        hnne = HNNE()
+        hnne = HNNE(hnne_version="v1")
         self.assertEqual(hnne.n_components, 2)
 
     def test_default_projection_shape(self):
-        hnne = HNNE()
+        hnne = HNNE(hnne_version="v1")
         projection = hnne.fit_transform(self.dummy_data_256)
         self.assertEqual(projection.shape, (self.dummy_data_256.shape[0], 2))
 
     def test_hnne_new_n_components(self):
         for n in [2, 3, 5, 10]:
-            hnne = HNNE(n_components=n)
+            hnne = HNNE(hnne_version="v1", n_components=n)
             projection = hnne.fit_transform(self.dummy_data_256)
             self.assertEqual(projection.shape, (self.dummy_data_256.shape[0], n))
 
     def test_reprojection_to_different_dimension(self):
         random_state = 366
-        hnne = HNNE(n_components=3, random_state=random_state)
+        hnne = HNNE(hnne_version="v1", n_components=3, random_state=random_state)
         projection = hnne.fit_transform(self.dummy_data_256)
         self.assertEqual(projection.shape, (self.dummy_data_256.shape[0], 3))
 
@@ -107,7 +107,7 @@ class TestHNNE(unittest.TestCase):
         self.assertEqual(reprojection.shape, (self.dummy_data_256.shape[0], 5))
 
         direct_projection_5_dims = HNNE(
-            n_components=5, random_state=random_state
+            hnne_version="v1", n_components=5, random_state=random_state
         ).fit_transform(self.dummy_data_256, verbose=True)
         self.assertEqual(
             direct_projection_5_dims.shape, (self.dummy_data_256.shape[0], 5)
