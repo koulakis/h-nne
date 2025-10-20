@@ -6,6 +6,31 @@ import numpy as np
 import pandas as pd
 
 
+def format_time(seconds):
+    """Format a duration in seconds into hr:min:sec or ms."""
+    if seconds < 1:
+        return f"{int(seconds * 1000)} ms"
+    h = int(seconds // 3600)
+    m = int((seconds % 3600) // 60)
+    s = int(seconds % 60)
+    if h > 0:
+        return f"{h}h {m}m {s}s"
+    elif m > 0:
+        return f"{m}m {s}s"
+    else:
+        return f"{s}s"
+
+
+def format_count(n):
+    """Format large sample counts into readable form."""
+    if n >= 1_000_000:
+        return f"{n / 1_000_000:.1f}M"
+    elif n >= 1_000:
+        return f"{n / 1_000:.1f}K"
+    else:
+        return str(n)
+
+
 def time_function_call(f, *args, **kwargs):
     start = timer()
     result = f(*args, **kwargs)

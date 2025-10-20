@@ -5,31 +5,6 @@ import numpy as np
 from matplotlib.patches import Circle
 
 
-def format_time(seconds):
-    """Format a duration in seconds into hr:min:sec or ms."""
-    if seconds < 1:
-        return f"{int(seconds * 1000)} ms"
-    h = int(seconds // 3600)
-    m = int((seconds % 3600) // 60)
-    s = int(seconds % 60)
-    if h > 0:
-        return f"{h}h {m}m {s}s"
-    elif m > 0:
-        return f"{m}m {s}s"
-    else:
-        return f"{s}s"
-
-
-def format_count(n):
-    """Format large sample counts into readable form."""
-    if n >= 1_000_000:
-        return f"{n / 1_000_000:.1f}M"
-    elif n >= 1_000:
-        return f"{n / 1_000:.1f}K"
-    else:
-        return str(n)
-
-
 # ----------------- single level 2D/3D plotters ------------------#
 def plot_layout_level_2d(
     layout: Dict[Tuple[int, int], Tuple[float, ...]],

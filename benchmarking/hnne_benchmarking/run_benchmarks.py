@@ -6,17 +6,21 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import typer
-from sklearn.preprocessing import StandardScaler
-
-from benchmarking.data import (
+from hnne_benchmarking.data import (
     DatasetGroup,
     dataset_loaders,
     dataset_validation_knn_values,
 )
-from benchmarking.evaluation import dim_reduction_benchmark, format_metric
-from benchmarking.utils import build_scores_overview, plot_proj_grid, time_function_call
+from hnne_benchmarking.evaluation import dim_reduction_benchmark, format_metric
+from hnne_benchmarking.utils import (
+    build_scores_overview,
+    format_time,
+    plot_proj_grid,
+    time_function_call,
+)
+from sklearn.preprocessing import StandardScaler
+
 from hnne.projector import HNNE
-from hnne.v2_utils import format_time
 
 
 def run_eval(
