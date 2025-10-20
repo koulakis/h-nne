@@ -8,12 +8,12 @@ from sklearn.preprocessing import StandardScaler
 
 from hnne.cool_functions import cool_max_radius, cool_mean
 from hnne.point_spreading import norm_angles, norm_angles_3d
-from hnne.v2_packer import pack_hierarchy_iterative_k_nd
-from hnne.v2_utils import (
+from hnne.v2.v2_packer import pack_hierarchy_iterative_k_nd
+from hnne.v2.v2_utils import (
     HNNEVersion,
-    _normalize_hnne_version,
     choose_v2_level_block,
     layout_to_level_arrays,
+    normalize_hnne_version,
     partition_update,
     rubust_scale_per_parent,
 )
@@ -376,7 +376,7 @@ def multi_step_projection(
       points_means, points_max_radii, inflation_params_list,
       v2_layout
     """
-    ver = _normalize_hnne_version(hnne_version)
+    ver = normalize_hnne_version(hnne_version)
     use_v2 = ver == "v2"
 
     # 0) Preliminary projection

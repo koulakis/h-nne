@@ -9,9 +9,15 @@ from sklearn.base import BaseEstimator
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
 
-from hnne.finch_clustering import FINCH
-from hnne.hierarchical_projection import PreliminaryEmbedding, multi_step_projection
-from hnne.v2_utils import HNNEVersion, _normalize_hnne_version
+from hnne.finch.finch_clustering import FINCH
+from hnne.v1.hierarchical_projection import (
+    multi_step_projection as multi_step_projection_v1,
+)
+from hnne.v2.hierarchical_projection import PreliminaryEmbedding
+from hnne.v2.hierarchical_projection import (
+    multi_step_projection as multi_step_projection_v2,
+)
+from hnne.v2.v2_utils import HNNEVersion, normalize_hnne_version
 
 
 @dataclass
@@ -32,7 +38,7 @@ class ProjectionParameters:
     points_means: List[np.ndarray]
     points_max_radii: List[np.ndarray]
     inflation_params_list: List[Any]
-    v2_layout: Dict[Tuple[int, int], Tuple[float, ...]]
+    v2_layout: Optional[Dict[Tuple[int, int], Tuple[float, ...]]]
     knn_index_transform: Optional[Any]
 
 
@@ -67,7 +73,7 @@ class HNNE(BaseEstimator):
      random_state: Optional[int] (default None)
          An optional random state for reproducibility purposes. It fixes the state of PCA and ANN.
 
-     prefered_num_clust: Optional[int] (default None)
+     preferred_num_clust: Optional[int] (default None)
          preferred clusters view. set to number of ground truth classes or clusters in your data.
 
     hnne_version : Literal["v1","v2","version_1","version_2","1","2","auto"], optional (default "version_2")
@@ -135,7 +141,7 @@ class HNNE(BaseEstimator):
         ann_threshold: int = 20_000,
         preliminary_embedding: str = "pca",
         random_state: Optional[int] = None,
-        prefered_num_clust: Optional[int] = None,
+        preferred_num_clust: Optional[int] = None,
         hnne_version: HNNEVersion = "version_2",
         start_cluster_view: Union[str, int, None] = "auto",
         v2_size_threshold: Optional[int] = None,
@@ -146,8 +152,8 @@ class HNNE(BaseEstimator):
         self.radius = radius
         self.ann_threshold = ann_threshold
         self.random_state = random_state
-        self.prefered_num_clust = prefered_num_clust
-        self.hnne_version = _normalize_hnne_version(hnne_version)
+        self.preferred_num_clust = preferred_num_clust
+        self.hnne_version = normalize_hnne_version(hnne_version)
         self.v2_size_threshold = v2_size_threshold
         self.start_cluster_view = start_cluster_view
         try:
@@ -180,7 +186,7 @@ class HNNE(BaseEstimator):
             lowest_level_centroids,
         ] = FINCH(
             data=X,
-            req_clust=self.prefered_num_clust,
+            req_clust=self.preferred_num_clust,
             ensure_early_exit=False,
             verbose=verbose,
             distance=self.metric,
@@ -274,33 +280,59 @@ class HNNE(BaseEstimator):
 
         if verbose:
             print(f"Projecting to {self.n_components} dimensions...")
-        [
-            projection,
-            projected_centroid_radii,
-            projected_centroids,
-            pca,
-            scaler,
-            points_means,
-            points_max_radii,
-            inflation_params_list,
-            v2_layout,
-        ] = multi_step_projection(
-            data=X,
-            partitions=partitions,
-            partition_labels=partition_labels,
-            radius=self.radius,
-            ann_threshold=self.ann_threshold,
-            dim=self.n_components,
-            partition_sizes=partition_sizes,
-            preliminary_embedding=self.preliminary_embedding,
-            prefered_num_clust=self.prefered_num_clust,
-            requested_partition=requested_partition,
-            hnne_version=self.hnne_version,
-            v2_size_threshold=self.v2_size_threshold,
-            start_cluster_view=self.start_cluster_view,
-            random_state=self.random_state,
-            verbose=verbose,
-        )
+        if self.hnne_version == "v1":
+            [
+                projection,
+                projected_centroid_radii,
+                projected_centroids,
+                pca,
+                scaler,
+                points_means,
+                points_max_radii,
+                inflation_params_list,
+            ] = multi_step_projection_v1(
+                data=X,
+                partitions=partitions,
+                partition_labels=partition_labels,
+                radius=self.radius,
+                ann_threshold=self.ann_threshold,
+                dim=self.n_components,
+                partition_sizes=partition_sizes,
+                preliminary_embedding=self.preliminary_embedding,
+                random_state=self.random_state,
+                verbose=verbose,
+            )
+            v2_layout = None
+        elif self.hnne_version == "v2":
+            [
+                projection,
+                projected_centroid_radii,
+                projected_centroids,
+                pca,
+                scaler,
+                points_means,
+                points_max_radii,
+                inflation_params_list,
+                v2_layout,
+            ] = multi_step_projection_v2(
+                data=X,
+                partitions=partitions,
+                partition_labels=partition_labels,
+                radius=self.radius,
+                ann_threshold=self.ann_threshold,
+                dim=self.n_components,
+                partition_sizes=partition_sizes,
+                preliminary_embedding=self.preliminary_embedding,
+                prefered_num_clust=self.preferred_num_clust,
+                requested_partition=requested_partition,
+                hnne_version=self.hnne_version,
+                v2_size_threshold=self.v2_size_threshold,
+                start_cluster_view=self.start_cluster_view,
+                random_state=self.random_state,
+                verbose=verbose,
+            )
+        else:
+            raise ValueError(f"Unknown h-NNE version: {self.hnne_version}.")
 
         self.projection_parameters = ProjectionParameters(
             pca=pca,
