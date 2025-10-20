@@ -36,7 +36,7 @@ class TestOnSmallDatasets(unittest.TestCase):
         cls.x_cifar10, cls.y_cifar10 = x_cifar10, y_cifar10
 
     def test_mnist_reproducibility(self):
-        projection = HNNE().fit_transform(self.x_mnist)
+        projection = HNNE(hnne_version="v1").fit_transform(self.x_mnist)
         expected_projection = np.load(
             self.assets_path / "mnist_expected_projection.npy"
         )
@@ -44,7 +44,7 @@ class TestOnSmallDatasets(unittest.TestCase):
         np.testing.assert_array_almost_equal(projection, expected_projection)
 
     def test_fmnist_reproducibility(self):
-        projection = HNNE().fit_transform(self.x_fmnist)
+        projection = HNNE(hnne_version="v1").fit_transform(self.x_fmnist)
         expected_projection = np.load(
             self.assets_path / "fmnist_expected_projection.npy"
         )
@@ -52,7 +52,7 @@ class TestOnSmallDatasets(unittest.TestCase):
         np.testing.assert_array_almost_equal(projection, expected_projection)
 
     def test_cifar10_reproducibility(self):
-        projection = HNNE().fit_transform(self.x_cifar10)
+        projection = HNNE(hnne_version="v1").fit_transform(self.x_cifar10)
         expected_projection = np.load(
             self.assets_path / "cifar10_expected_projection.npy"
         )
@@ -61,7 +61,7 @@ class TestOnSmallDatasets(unittest.TestCase):
         np.testing.assert_almost_equal(projection, expected_projection, decimal=5)
 
     def test_mnist_scores(self):
-        projection = HNNE().fit_transform(self.x_mnist)
+        projection = HNNE(hnne_version="v1").fit_transform(self.x_mnist)
 
         accuracy = compute_accuracy(projection, self.y_mnist)
         min_accuracy = 0.9338
@@ -71,7 +71,7 @@ class TestOnSmallDatasets(unittest.TestCase):
         )
 
     def test_fmnist_scores(self):
-        projection = HNNE().fit_transform(self.x_fmnist)
+        projection = HNNE(hnne_version="v1").fit_transform(self.x_fmnist)
 
         accuracy = compute_accuracy(projection, self.y_fmnist)
         min_accuracy = 0.7542
@@ -81,7 +81,7 @@ class TestOnSmallDatasets(unittest.TestCase):
         )
 
     def test_cifar10_scores(self):
-        projection = HNNE().fit_transform(self.x_cifar10)
+        projection = HNNE(hnne_version="v1").fit_transform(self.x_cifar10)
 
         accuracy = compute_accuracy(projection, self.y_cifar10)
         min_accuracy = 0.20069
