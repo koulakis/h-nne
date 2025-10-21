@@ -6,6 +6,29 @@
 ==============================================
 h-NNE: Hierarchical Nearest Neighbor Embedding
 ==============================================
+
+--------
+h-NNE v2
+--------
+
+Great news, we have a new version of the algorithm 🥳🥳🥳
+
+Some of its features:
+
+- It allocates space proprotional to cluster sizes which helps avoid cluster collapses.
+- In general it places points in a more space-efficient way using a form of circle packing.
+- It improves some of the original h-NNE mechanics by using robust statistics instead of maximage.
+
+What to pay attention to:
+
+- Now this is the default version used. If you wish to use h-NNE v1, set `hnne_version="v1"` when initializing `HNNE`.
+- It is still very new and has not been published in peer-reviewed journal or conference.
+- In contrast to h-NNE v1, it does not respect the FINCH clusters on the top levels where the circle packing occurs. Instead it picks the optimal layout based on an original PCA projection and the packing.
+
+--------
+h-NNE v1
+--------
+
 A fast hierarchical dimensionality reduction algorithm.
 
 h-NNE is a general purpose dimensionality reduction algorithm such as t-SNE and UMAP. It stands out for its speed,

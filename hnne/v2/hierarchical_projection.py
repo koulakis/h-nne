@@ -355,7 +355,7 @@ def multi_step_projection(
     dim=2,
     hnne_version: HNNEVersion = "version_2",
     partition_sizes=None,
-    prefered_num_clust=None,
+    preferred_num_clust=None,
     requested_partition=None,
     preliminary_embedding="pca",
     random_state=None,
@@ -422,14 +422,14 @@ def multi_step_projection(
         ps = np.asarray(partition_sizes, dtype=int)
 
         # Respect user's preferred start if provided (and optional requested_partition)
-        if prefered_num_clust is not None:
+        if preferred_num_clust is not None:
             if requested_partition is not None:
-                if prefered_num_clust == len(np.unique(requested_partition)):
-                    ind = [i for i, v in enumerate(ps) if v >= prefered_num_clust]
+                if preferred_num_clust == len(np.unique(requested_partition)):
+                    ind = [i for i, v in enumerate(ps) if v >= preferred_num_clust]
                     partitions, ps, partition_labels = partition_update(
                         partitions, ind[-1], requested_partition, ps, partition_labels
                     )
-            start_cluster_view = int(prefered_num_clust)
+            start_cluster_view = int(preferred_num_clust)
 
         # If the user explicitly provided an integer start below top (coarsest) size, bump to top and warn
         if (isinstance(start_cluster_view, (int, np.integer))) and (
@@ -438,7 +438,7 @@ def multi_step_projection(
             print(
                 f"[INFO]: The required start_cluster_view is smaller than the default top level "
                 f"of the FINCH hierarchy (i.e. {ps[-1]} clusters). "
-                f"Using {ps[-1]} instead. Set prefered_num_clust if you intend to override."
+                f"Using {ps[-1]} instead. Set preferred_num_clust if you intend to override."
             )
             start_cluster_view = int(ps[-1])
 

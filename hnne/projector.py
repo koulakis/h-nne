@@ -323,7 +323,7 @@ class HNNE(BaseEstimator):
                 dim=self.n_components,
                 partition_sizes=partition_sizes,
                 preliminary_embedding=self.preliminary_embedding,
-                prefered_num_clust=self.preferred_num_clust,
+                preferred_num_clust=self.preferred_num_clust,
                 requested_partition=requested_partition,
                 hnne_version=self.hnne_version,
                 v2_size_threshold=self.v2_size_threshold,
