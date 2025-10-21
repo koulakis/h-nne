@@ -32,12 +32,12 @@ def load_coil20(data_path):
 
 
 def load_shuttle(data_path):
-    shuttle = pd.read_csv(data_path / "shuttle.tst", sep=" ", header=None)
-    shuttle_train = pd.read_csv(data_path / "shuttle_train.csv", index_col="Id")
+    shuttle_train = pd.read_csv(data_path / "shuttle.trn", sep=" ", header=None)
+    shuttle_test = pd.read_csv(data_path / "shuttle.tst", sep=" ", header=None)
 
     x_shuttle, y_shuttle = np.vstack(
-        [np.array(shuttle_train)[:, :-1], np.array(shuttle)[:, :-1]]
-    ), np.hstack([shuttle_train["Category"], np.array(shuttle)[:, -1]])
+        [np.array(shuttle_train)[:, :-1], np.array(shuttle_test)[:, :-1]]
+    ), np.hstack([shuttle_train[:, :-1], np.array(shuttle_test)[:, -1]])
 
     return x_shuttle, y_shuttle
 
