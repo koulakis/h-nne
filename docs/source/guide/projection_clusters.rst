@@ -9,7 +9,10 @@ This set of partitions can be useful when one is dealing with unlabeled data. Us
 one can identify clusters which align with the h-NNE projection structure. We already presented the functionality in
 the demo 1 notebook. Here we look at a more realistic scenario with a larger dataset containing no labels.
 The dataset we use is a list of 3 million word embeddings of dimension 300 based on the Google news dataset.
+
 WARNING: To run this code be sure to use a server with at least 64GB of RAM.
+
+NOTE: Here we are using h-NNE v1, as v2 visually separates the FINCH clusters of some of the top levels.
 
 To install the required libraries with pip run:
 
@@ -51,7 +54,7 @@ Project the data with h-NNE:
 
 .. code-block:: python
 
-    hnne = HNNE()
+    hnne = HNNE(hnne_version="v1")
     projection = hnne.fit_transform(data, verbose=True)
 
 Along with the projected point, the partitions of all levels of h-NNE are available via the
