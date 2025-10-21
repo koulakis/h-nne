@@ -36,7 +36,7 @@ def run_eval(
     random_state: int = 42,
     verbose: bool = False,
     # hnne v2 params
-    prefered_num_clust=None,
+    preferred_num_clust=None,
     hnne_version="v2",
     start_cluster_view: int = "auto",
     v2_size_threshold: int = None,
@@ -108,7 +108,7 @@ def run_eval(
                 ann_threshold=ann_threshold,
                 preliminary_embedding=preliminary_embedding,
                 random_state=random_state,
-                preferred_num_clust=prefered_num_clust,
+                preferred_num_clust=preferred_num_clust,
                 hnne_version=hnne_version,
                 v2_size_threshold=v2_size_threshold,
                 start_cluster_view=start_cluster_view,
