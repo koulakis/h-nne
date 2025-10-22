@@ -36,6 +36,7 @@ setuptools.setup(
         "typer",
         "pandas",
         "cython",
+        "finch-clust >= 0.2.2",
     ],
     test_suite="pytest",
     tests_require=test_dependencies,
