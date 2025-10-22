@@ -19,11 +19,12 @@ Please make sure:
 Codebase setup
 --------------
 
-Install the project locally with:
+Install the project and torchvision (needed to get datasets) locally with:
 
 .. code-block:: python
 
     pip install -e ".[test]"
+    pip install torchvision --index-url https://download.pytorch.org/whl/cpu
 
 This will install the project together with the requirements to run testing.
 

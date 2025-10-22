@@ -5,7 +5,7 @@ import setuptools
 this_directory = Path(__file__).parent
 long_description = (this_directory / "README.rst").read_text()
 
-test_dependencies = ["pytest", "torchvision", "pre_commit"]
+test_dependencies = ["pytest", "pre_commit"]
 
 
 setuptools.setup(
