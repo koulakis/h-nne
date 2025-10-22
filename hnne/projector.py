@@ -9,7 +9,7 @@ from sklearn.base import BaseEstimator
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
 
-from hnne.finch.finch_clustering import FINCH
+from finch import FINCH
 from hnne.v1.hierarchical_projection import (
     multi_step_projection as multi_step_projection_v1,
 )
@@ -180,8 +180,8 @@ class HNNE(BaseEstimator):
             print("Building h-NNE hierarchy using FINCH...")
         [
             partitions,
-            requested_partition,
             partition_sizes,
+            requested_partition,
             partition_labels,
             lowest_level_centroids,
         ] = FINCH(
@@ -194,6 +194,7 @@ class HNNE(BaseEstimator):
             random_state=self.random_state,
             faiss_threshold=self.faiss_threshold,
             faiss_use_gpu=self.faiss_use_gpu,
+            return_meta_labels=True,
         )
 
         large_enough_partitions = np.argwhere(
