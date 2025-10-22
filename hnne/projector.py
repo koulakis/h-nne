@@ -3,13 +3,13 @@ from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
+from finch import FINCH
 from pynndescent import NNDescent
 from sklearn import metrics
 from sklearn.base import BaseEstimator
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
 
-from finch import FINCH
 from hnne.v1.hierarchical_projection import (
     multi_step_projection as multi_step_projection_v1,
 )
