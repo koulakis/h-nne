@@ -16,7 +16,7 @@ setuptools.setup(
     description="A fast hierarchical dimensionality reduction algorithm.",
     long_description=long_description,
     long_description_content_type="text/x-rst",
-    packages=["hnne"],
+    packages=setuptools.find_packages(include=["hnne", "hnne.*"]),
     classifiers=[
         "Development Status :: 3 - Alpha",
         "License :: OSI Approved :: MIT License",
