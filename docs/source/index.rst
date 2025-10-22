@@ -7,37 +7,55 @@
 h-NNE: Hierarchical Nearest Neighbor Embedding
 ==============================================
 
---------
+Great news, we have a new version of the algorithm 🥳🥳🥳
+
+
 h-NNE v2
 --------
 
-Great news, we have a new version of the algorithm 🥳🥳🥳
+🎉 **New in h-NNE v2:** a fast, geometry-aware **packing layer** for the top (coarse) levels that allocates space proportional to cluster size and preserves local anchor relations. This fixes the “dotifying” look (tiny, collapsed clusters) and the “squeezed big cluster” issue that could appear in v1 when many anchors sat too close.
 
-Some of its features:
+What changed & why
+~~~~~~~~~~~~~~~~~~
 
-- It allocates space proprotional to cluster sizes which helps avoid cluster collapses.
-- In general it places points in a more space-efficient way using a form of circle packing.
-- It improves some of the original h-NNE mechanics by using robust statistics instead of maximage.
+- **Space by cluster mass.** Coarse-level anchors are laid out via a lightweight circle-packing step guided by PCA anchors and :math:`1`-NN relations to produce acompact, overlap-free arrangement. Larger clusters get more area; small ones remain visible.
+- **Better global framing.** A vectorized overlap resolver plus relaxed/capped :math:`k`-NN edge targets yields tight layouts without blow-ups, reducing unused whitespace and artifacts.
+- **Drop-in for h-NNE.** v2 runs on the top few FINCH_ levels, then hands the result to the standard h-NNE refinement. Deeper (fine) levels still use the original fast point-to-anchor updates.
 
-What to pay attention to:
+- **Note:** When running v2 on large datasets (>= 1M points), it starts the tree layout by default after some level of FINCH with a minimum number of clusters (10-10,000) to enhance point spread.
 
-- Now this is the default version used. If you wish to use h-NNE v1, set `hnne_version="v1"` when initializing `HNNE`.
-- It is still very new and has not been published in peer-reviewed journal or conference.
-- In contrast to h-NNE v1, it does not respect the FINCH clusters on the top levels where the circle packing occurs. Instead it picks the optimal layout based on an original PCA projection and the packing.
+Using it
+~~~~~~~~
 
---------
-h-NNE v1
---------
+- v2 is **on by default**. To use the legacy pipeline:
 
-A fast hierarchical dimensionality reduction algorithm.
+  .. code-block:: python
 
-h-NNE is a general purpose dimensionality reduction algorithm such as t-SNE and UMAP. It stands out for its speed,
-simplicity and the fact that it provides a hierarchy of clusterings as part of its projection process. The algorithm is
-inspired by the FINCH_ clustering algorithm. For more information on the structure of the algorithm, please look at `our
-corresponding paper in CVPR 2022`__:
+     HNNE(..., hnne_version="v1")
+
+- Defaults generally work well. Optional advanced knobs (e.g., ``start_cluster_view``) let you **steer the look**: choose a **deeper level** for a more uniform, zoomed-in spread, or a **coarser (top) level** for a global, zoomed-out view before refinement.
+
+More technical details (algorithms, complexity, limitations) are in our arXiv paper (linked soon).
+
+
+h-NNE (overview)
+----------------
+
+h-NNE is a hierarchical dimensionality reduction method—akin in spirit to t-SNE/UMAP—but designed for speed, simplicity, and structured views. It first builds a clustering hierarchy with FINCH_, then embeds cluster anchors level-by-level and maps points to their anchors with simple, vectorized updates. This preserves local neighborhoods while providing a natural coarse→fine “zoom” over the data.
+
+Key properties
+~~~~~~~~~~~~~~
+
+- **Fast & scalable.** No global nonconvex optimization; point updates are vectorized and memory-friendly.
+- **Structure-aware zoom.** Choose a parent level for global context, then expand children for detail.
+- **Labels included.** FINCH provides cluster labels out of the box—useful for unlabeled data and structured visualization.
+- **Parameter-light.** FINCH is parameter-free; h-NNE uses robust defaults.
+
+See our `corresponding CVPR 2022 paper`__ for the original algorithm and the arXiv addendum for the v2 packing layer.
+
 
   M. Saquib Sarfraz\*, Marios Koulakis\*, Constantin Seibold, Rainer Stiefelhagen.
-  Hierarchical Nearest Neighbor Graph Embedding for Efficient Dimensionality Reduction. CVPR 2022.
+  *Hierarchical Nearest Neighbor Graph Embedding for Efficient Dimensionality Reduction*. CVPR 2022.
 
 .. __: https://openaccess.thecvf.com/content/CVPR2022/papers/Sarfraz_Hierarchical_Nearest_Neighbor_Graph_Embedding_for_Efficient_Dimensionality_Reduction_CVPR_2022_paper.pdf
 
