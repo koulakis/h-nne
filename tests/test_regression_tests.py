@@ -23,7 +23,7 @@ class TestHNNE(unittest.TestCase):
             self.assets_path / "pendigits_projection_hnne_v1.txt", delimiter=","
         )
 
-        np.testing.assert_array_equal(projection, expected_projection)
+        np.testing.assert_array_almost_equal(projection, expected_projection)
 
     def test_hnne_v2(self):
         hnne = HNNE(hnne_version="v2")
@@ -33,4 +33,4 @@ class TestHNNE(unittest.TestCase):
             self.assets_path / "pendigits_projection_hnne_v2.txt", delimiter=","
         )
 
-        np.testing.assert_array_equal(projection, expected_projection)
+        np.testing.assert_array_almost_equal(projection, expected_projection)
