@@ -26,11 +26,11 @@ h-NNE v2
 What changed & why
 ~~~~~~~~~~~~~~~~~~
 
-- **Space by cluster mass.** Coarse-level anchors are laid out via a lightweight circle-packing step guided by PCA anchors and :math:`1`-NN relations to produce a **compact, overlap-free** arrangement. Larger clusters get more area; small ones remain visible.
+- **Space by cluster mass.** Coarse-level anchors are laid out via a lightweight circle-packing step guided by PCA anchors and :math:`1`-NN relations to produce acompact, overlap-free arrangement. Larger clusters get more area; small ones remain visible.
 - **Better global framing.** A vectorized overlap resolver plus relaxed/capped :math:`k`-NN edge targets yields tight layouts without blow-ups, reducing unused whitespace and artifacts.
 - **Drop-in for h-NNE.** v2 runs on the top few FINCH_ levels, then hands the result to the standard h-NNE refinement. Deeper (fine) levels still use the original fast point-to-anchor updates.
 
-- **Note:** On FINCH structure at the top levels v2 respects cluster memberships and the hierarchy (children stay inside their parent), but does not freeze coarse anchors to their raw PCA positions. Instead, it finds an optimized packed layout that remains faithful to local PCA :math:`k`-NN structure and cluster sizes.
+- **Note:** When running v2 on large datasets (>= 1M points), it starts the tree layout by default after some level of FINCH with a minimum number of clusters (10-10,000) to enhance point spread. This means those first clusters are close to the intial PCA projections of their centroids thus the clusters of the FINCH tree above the h-nne starting level might be visually split.
 
 Using it
 ~~~~~~~~
