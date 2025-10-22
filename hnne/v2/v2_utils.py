@@ -230,27 +230,24 @@ def _choose_policy_by_N(N: int) -> Tuple[str, int, int, Optional[int]]:
       - "start_and_descend": start near 'start_min_clusters' and include up to 'max_extra_levels'
                              finer levels, optionally capping by 'end_max_clusters'
     """
-    if N <= 10_000:
+    if N <= 500_000:
+        # Start from the very top; include levels down until ≤ 500 clusters
+        return ("top_to_threshold", 0, 0, 500)     
+    if N <= 1000_000:
         # Start from the very top; include levels down until ≤ 1k clusters
-        return "top_to_threshold", 0, 0, 500
-    elif N <= 500_000:
+        return ("top_to_threshold", 10, 2, 500)     
+    elif N <= 5000_000:
         # Start around ≥10 clusters; descend up to 2 levels, but don't exceed 1k clusters
-        return "start_and_descend", 50, 2, 1_000
-    elif N <= 1_000_000:
-        # Start around 500 clusters; allow up to 2 levels; cap around 10k
-        return "start_and_descend", 500, 2, 3_000
-    elif N <= 5_000_000:
-        # Start ≥1000; go 2 levels if available
-        return "start_and_descend", 3_000, 2, 5_000
+        return ("start_and_descend", 50, 2, 2_000)
     elif N <= 10_000_000:
         # Start ≥1000; go 1 level
-        return "start_and_descend", 15_000, 1, None
-    elif N <= 30_000_000:
+        return ("start_and_descend", 500, 1, 10_000)
+    elif N <= 50_000_000:
         # Start ≥2000; go 1 level
-        return "start_and_descend", 20_000, 1, None
+        return ("start_and_descend", 5_000, 1, 50_000)
     else:
         # Very large: only one v2 level near ~50k, then pass to v1
-        return "start_and_descend", 50_000, 0, None
+        return ("start_and_descend", 10_000, 0, None)
 
 
 def choose_v2_level_block(
