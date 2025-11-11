@@ -234,7 +234,9 @@ class HNNE(BaseEstimator):
         partitions = partitions[:, :max_partition_idx]
         partition_labels = partition_labels[:max_partition_idx]
 
-        new_points_cluster_assignments = np.empty([0, 0])  # gets updated if transform is called
+        new_points_cluster_assignments = np.empty(
+            [0, 0]
+        )  # gets updated if transform is called
         self.hierarchy_parameters = HierarchyParameters(
             partitions,
             requested_partition,
@@ -413,9 +415,13 @@ class HNNE(BaseEstimator):
             nearest_anchor_idxs = np.argmin(orig_dist, axis=1)
 
         # update test_points cluster assignments
-        _, lowest_level_centroids_index = np.unique(hparams.partitions[:, 0], return_index=True)
+        _, lowest_level_centroids_index = np.unique(
+            hparams.partitions[:, 0], return_index=True
+        )
         new_points_index = lowest_level_centroids_index[nearest_anchor_idxs]
-        self.hierarchy_parameters.new_points_cluster_assignments = hparams.partitions[new_points_index, :]
+        self.hierarchy_parameters.new_points_cluster_assignments = hparams.partitions[
+            new_points_index, :
+        ]
 
         if verbose:
             print("Projecting data...")

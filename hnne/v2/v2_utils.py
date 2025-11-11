@@ -251,16 +251,19 @@ def _choose_policy_by_N(N: int) -> Tuple[str, int, int, Optional[int]]:
 
 
 def choose_policy_for_user_start(start_target):
-    ref_N_policy = [np.array([10, 50, 5000, 10000]), [(2, 1000), (2, 2_000), (1, 50_000), (0, None)]]
+    ref_N_policy = [
+        np.array([10, 50, 5000, 10000]),
+        [(2, 1000), (2, 2_000), (1, 50_000), (0, None)],
+    ]
     v = np.argmin(np.abs(start_target - ref_N_policy[0]))
     return ref_N_policy[1][v]
 
 
 def choose_v2_level_block(
-        partition_sizes: Sequence[int],
-        N: int,
-        start_cluster_view: Union[str, int, None] = "auto",
-        v2_size_threshold: int = None,
+    partition_sizes: Sequence[int],
+    N: int,
+    start_cluster_view: Union[str, int, None] = "auto",
+    v2_size_threshold: int = None,
 ) -> np.ndarray:
     """
     Decide which FINCH hierarchy levels (indices) to use for the v2 packer.

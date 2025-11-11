@@ -1,5 +1,6 @@
 from enum import Enum
 from typing import Optional, Tuple
+
 import numpy as np
 from scipy.spatial import cKDTree
 from sklearn.decomposition import PCA
@@ -20,6 +21,7 @@ from hnne.v2.v2_utils import (
 
 try:
     from pynndescent import NNDescent
+
     _HAS_NND = True
 except Exception:
     _HAS_NND = False
@@ -116,7 +118,9 @@ def move_projected_points_to_anchors_v2(
     verbose: bool = False,
     # --- safe & robust knobs (sane defaults) ---
     k_radius: int = 2,  # base radius from median of k-NN distances
-    clip_quantiles: Optional[Tuple[float, float]] = None,  # e.g. (0.02, 0.98); None = off
+    clip_quantiles: Optional[
+        Tuple[float, float]
+    ] = None,  # e.g. (0.02, 0.98); None = off
     cap_eps_frac: float = 1e-3,  # tiny epsilon in half-NN cap (relative to median d1)
     use_pairwise_small_k: bool = True,
     small_k_cutoff: int = 100,
@@ -442,7 +446,12 @@ def multi_step_projection(
             start_cluster_view = int(ps[-1])
 
         # Automatic block selection (fine→coarse indices)
-        indices_v2 = choose_v2_level_block(ps, N, start_cluster_view=start_cluster_view, v2_size_threshold=v2_size_threshold)
+        indices_v2 = choose_v2_level_block(
+            ps,
+            N,
+            start_cluster_view=start_cluster_view,
+            v2_size_threshold=v2_size_threshold,
+        )
 
         if indices_v2.size > 0:
             # Split into v2 slice and the finer remainder for the classic loop
