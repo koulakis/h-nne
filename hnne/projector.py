@@ -27,6 +27,7 @@ class HierarchyParameters:
     partition_sizes: np.ndarray
     partition_labels: np.ndarray
     lowest_level_centroids: np.ndarray
+    new_points_cluster_assignments: np.ndarray
 
 
 @dataclass
@@ -57,7 +58,7 @@ class HNNE(BaseEstimator):
          by both sklearn and pynndescent. Some possible values: 'cityblock', 'cosine', 'euclidean',
          'l1', 'l2', 'manhattan'.
 
-     radius: float (default 0.45)
+     radius: float (default 0.4)
          The radius used to place points around centroids as a portion of the distance between nearest neighbor anchors.
          Though the theoretical value which guarantees no overlaps between anchor points is 0.2, 0.45 is a value which
          provides in practice denser visualizations with minimal loss in performance.
@@ -107,19 +108,37 @@ class HNNE(BaseEstimator):
          the finest level used by v2 is the finest level whose cluster count is
          `<= v2_size_threshold`. Only used when `hnne_version` is v2/"auto".
 
+    faiss_threshold: int | None = 10_000_000
+         faiss_use_gpu: bool = False
+         For very large data size > faiss_threshold, FINCH uses faiss for computing 1-nn
+
      Attributes
      ----------
      min_size_top_level: int (default 3)
          The minimum number of centroids existing on the top level of the hierarchy. To achieve this minimum, the top
          levels which have fewer centroids are removed.
 
-     faiss_threshold: int | None = 10_000_000
-     faiss_use_gpu: bool = False
-         For very large data size > faiss_threshold, FINCH use faiss for computing 1-nn
-
      hierarchy_parameters: Optional[HierarchyParameters]
-         An object holding the parameters which encode the h-nne hierarchy. They are saved during fitting and can be
-         reused both during projecting new points or projecting again with different parameters, e.g. n_components.
+        Cached FINCH hierarchy from fitting; reused for transforming new points
+        or re-projecting with different params (e.g., n_components).
+
+        Fields
+        ------
+        partitions : (N, L) int
+            Level-wise cluster labels (0 = finest … L-1 = top); labels are per-level.
+        partition_sizes : (L,) int
+            Number of clusters at each level.
+        requested_partition : (N,) int or None
+            Labels at the **exact** user-requested cluster count (if `preferred_num_clust`
+            was set); otherwise None.
+        lowest_level_centroids : (K0, D) float
+            Means of finest-level (ℓ=0) clusters in the orignal space.
+        new_points_cluster_assignments : (M, L) int or None
+            Assignments of the most recent `transform(new_points)` to existing clusters;
+            None if no transform was run.
+
+        Note: You can populate this without a full projection via `fit_only_hierarchy(...)`.
+
 
      References
      ----------
@@ -215,12 +234,14 @@ class HNNE(BaseEstimator):
         partitions = partitions[:, :max_partition_idx]
         partition_labels = partition_labels[:max_partition_idx]
 
+        new_points_cluster_assignments = np.empty([0, 0])  # gets updated if transform is called
         self.hierarchy_parameters = HierarchyParameters(
             partitions,
             requested_partition,
             partition_sizes,
             partition_labels,
             lowest_level_centroids,
+            new_points_cluster_assignments,
         )
 
         return partitions, requested_partition, partition_sizes, partition_labels
@@ -390,6 +411,11 @@ class HNNE(BaseEstimator):
                 X, hparams.lowest_level_centroids, metric=self.metric
             )
             nearest_anchor_idxs = np.argmin(orig_dist, axis=1)
+
+        # update test_points cluster assignments
+        _, lowest_level_centroids_index = np.unique(hparams.partitions[:, 0], return_index=True)
+        new_points_index = lowest_level_centroids_index[nearest_anchor_idxs]
+        self.hierarchy_parameters.new_points_cluster_assignments = hparams.partitions[new_points_index, :]
 
         if verbose:
             print("Projecting data...")

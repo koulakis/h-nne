@@ -45,7 +45,7 @@ def rescale_layout(
 
 def layout_to_level_arrays(
     layout: Dict[Tuple[int, int], Tuple[float, ...]],
-    levels: Sequence[int] | None = None,
+    levels: Optional[Sequence[int]] = None,
     sort_labels: bool = True,
     return_labels: bool = False,
 ) -> Union[
@@ -231,29 +231,36 @@ def _choose_policy_by_N(N: int) -> Tuple[str, int, int, Optional[int]]:
                              finer levels, optionally capping by 'end_max_clusters'
     """
     if N <= 500_000:
-        # Start from the very top; include levels down until ≤ 500 clusters
-        return "top_to_threshold", 0, 0, 500
+        # Start from the very top; include levels down until ≤ 1000 clusters
+        return ("top_to_threshold", 0, 2, 1000)
     if N <= 1_000_000:
-        # Start from the very top; include levels down until ≤ 1k clusters
-        return "top_to_threshold", 10, 2, 500
-    elif N <= 5_000_000:
         # Start around ≥10 clusters; descend up to 2 levels, but don't exceed 1k clusters
-        return "start_and_descend", 50, 2, 2_000
-    elif N <= 10_000_000:
-        # Start ≥1000; go 1 level
-        return "start_and_descend", 500, 1, 10_000
+        return ("start_and_descend", 10, 2, 1000)
+    elif N <= 5_000_000:
+        # Start around ≥50 clusters; descend up to 2 levels, but don't exceed 2k clusters
+        return ("start_and_descend", 50, 2, 2_000)
+    elif N <= 20_000_000:
+        # Start ≥500; go 1 level
+        return ("start_and_descend", 500, 1, 10_000)
     elif N <= 50_000_000:
         # Start ≥2000; go 1 level
-        return "start_and_descend", 5_000, 1, 50_000
+        return ("start_and_descend", 5_000, 1, 100_000)
     else:
         # Very large: only one v2 level near ~50k, then pass to v1
-        return "start_and_descend", 10_000, 0, None
+        return ("start_and_descend", 10_000, 0, None)
+
+
+def choose_policy_for_user_start(start_target):
+    ref_N_policy = [np.array([10, 50, 5000, 10000]), [(2, 1000), (2, 2_000), (1, 50_000), (0, None)]]
+    v = np.argmin(np.abs(start_target - ref_N_policy[0]))
+    return ref_N_policy[1][v]
 
 
 def choose_v2_level_block(
-    partition_sizes: Sequence[int],
-    N: int,
-    start_cluster_view: Union[str, int, None] = "auto",
+        partition_sizes: Sequence[int],
+        N: int,
+        start_cluster_view: Union[str, int, None] = "auto",
+        v2_size_threshold: int = None,
 ) -> np.ndarray:
     """
     Decide which FINCH hierarchy levels (indices) to use for the v2 packer.
@@ -268,7 +275,7 @@ def choose_v2_level_block(
     start_cluster_view : {"auto", int, None}
         - "auto" / None: pick start/end levels automatically from N.
         - int: respect this as the desired starting cluster count (nearest level chosen),
-               but choose how many child levels to include automatically per the N-policy.
+               but choose how many child levels to include automatically default (2 levels below).
 
     Returns
     -------
@@ -289,12 +296,8 @@ def choose_v2_level_block(
     mode, auto_start_min, max_extra, end_cap = _choose_policy_by_N(int(N))
 
     # --- Case A: small-N special (start at top; go down to a cluster cap) ---
-    if (start_cluster_view in ("auto", None)) and (mode == "top_to_threshold"):
-        # first index from fine-side that is ≤ end_cap (default 2000)
-        # if none, include everything (s_idx = 0)
-        s_idx = int(np.argmax(sizes <= end_cap)) if np.any(sizes <= end_cap) else 0
-        e_idx = L - 1  # top (coarsest)
-        return np.arange(s_idx, e_idx + 1, dtype=int)
+    # if mode == "top_to_threshold":
+    #    max_extra = L - 1
 
     # --- Case B: start near a cluster target and descend a few levels ---
     # Determine the desired start cluster count
@@ -302,6 +305,13 @@ def choose_v2_level_block(
         start_target = auto_start_min
     else:
         start_target = int(start_cluster_view)
+        max_extra, end_cap = choose_policy_for_user_start(start_target)
+
+    if v2_size_threshold is not None:
+        # enure v2_size_thresh > start_target
+        if v2_size_threshold >= start_target:
+            max_extra = L - 1
+            end_cap = v2_size_threshold
 
     # Choose the *coarsest* level with clusters ≥ start_target (or nearest if none)
     s = _nearest_level_geq_coarsest(sizes, start_target)
