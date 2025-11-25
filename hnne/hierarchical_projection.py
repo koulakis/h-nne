@@ -1,10 +1,11 @@
 from enum import Enum
 
-import numpy as np
-from pynndescent import NNDescent
-from sklearn.decomposition import PCA
-from sklearn.metrics import pairwise
-from sklearn.preprocessing import StandardScaler
+import cupy as cp
+from cuml.neighbors import NearestNeighbors
+
+from cuml.decomposition import PCA
+from cuml.metrics import pairwise_distances
+from cuml.preprocessing import StandardScaler
 
 from hnne.cool_functions import cool_max_radius, cool_mean
 from hnne.point_spreading import norm_angles, norm_angles_3d
@@ -26,7 +27,7 @@ def project_with_pca_centroids(
     verbose=False,
 ):
     pca = PCA(n_components=dim, random_state=random_state)
-    large_partitions = np.where(np.array(partition_sizes) > min_number_of_anchors)[0]
+    large_partitions = cp.where(cp.array(partition_sizes) > min_number_of_anchors)[0]
     partition_idx = large_partitions.max() if any(large_partitions) else 0
     if verbose:
         print(
@@ -38,7 +39,7 @@ def project_with_pca_centroids(
 
 
 def project_with_pca(data, dim=2, random_state=None):
-    pca = PCA(n_components=dim, random_state=random_state)
+    pca = PCA(n_components=dim) #, random_state=random_state)
     transformed_data = pca.fit_transform(data)
     return transformed_data, pca
 
@@ -70,9 +71,9 @@ def project_points(
             verbose=verbose,
         )
     elif preliminary_embedding == PreliminaryEmbedding.random_linear:
-        np.random.seed(random_state)
-        random_components = np.random.random((data.shape[1], dim))
-        projected_points = np.dot(data, random_components)
+        cp.random.seed(random_state)
+        random_components = cp.random.random((data.shape[1], dim))
+        projected_points = cp.dot(data, random_components)
     else:
         raise ValueError(f"Invalid preliminary embedding: {preliminary_embedding}")
 
@@ -92,22 +93,18 @@ def get_finch_anchors(projected_points, partitions=None):
 def move_projected_points_to_anchors(
     points, anchors, partition, radius=0.9, real_nn_threshold=30000, verbose=False
 ):
-    if anchors.shape[0] <= real_nn_threshold:
-        distance_matrix = pairwise.pairwise_distances(
-            anchors, anchors, metric="euclidean"
-        )
-        np.fill_diagonal(distance_matrix, 1e12)
-        nearest_neighbor_idx = np.argmin(distance_matrix, axis=1).flatten()
-    else:
-        if verbose:
-            print("Using ann to approximate 1-nns of the projected points...")
-        knn_index = NNDescent(
-            anchors, n_neighbors=2, metric="euclidean", verbose=verbose
-        )
-        nns, _ = knn_index.neighbor_graph
-        nearest_neighbor_idx = nns[:, 1]
+    # Always use kNN on GPU to avoid dense pairwise distance matrices
+    if verbose and anchors.shape[0] > real_nn_threshold:
+        print("Using nn to calculate 1-nns of the projected points...")
+    nn = NearestNeighbors(
+        n_neighbors=2,
+        metric="euclidean",
+    )
+    nn.fit(anchors)
+    nns = nn.kneighbors(anchors, return_distance=False)
+    nearest_neighbor_idx = nns[:, 1]
 
-    anchor_distances_from_nns = np.linalg.norm(
+    anchor_distances_from_nns = cp.linalg.norm(
         anchors - anchors[nearest_neighbor_idx], axis=1, keepdims=True
     )
     anchor_radii = anchor_distances_from_nns * radius
@@ -119,8 +116,8 @@ def move_projected_points_to_anchors(
     points_centered = points - points_mean_per_partition[partition]
 
     anchors_max_radius = cool_max_radius(points_centered, partition)
-    anchors_max_radius = np.where(anchors_max_radius == 0.0, 1.0, anchors_max_radius)
-    points_max_radius = np.expand_dims(anchors_max_radius[partition], axis=1)
+    anchors_max_radius = cp.where(anchors_max_radius == 0.0, 1.0, anchors_max_radius)
+    points_max_radius = cp.expand_dims(anchors_max_radius[partition], axis=1)
 
     return (
         anchors_per_point
@@ -174,13 +171,13 @@ def multi_step_projection(
 
         current_points = projected_anchors[i]
         if dim == 2:
-            thetas = np.linspace(0, np.pi / 2, 6)
+            thetas = cp.linspace(0, cp.pi / 2, 6)
             current_points, inflation_params = norm_angles(
                 current_points, thetas, partition_mapping
             )
             inflation_params_list.append(inflation_params)
         if dim == 3:
-            alphas, beta, gammas = 3 * [np.linspace(0, np.pi / 2, 6)]
+            alphas, beta, gammas = 3 * [cp.linspace(0, cp.pi / 2, 6)]
             current_points, inflation_params = norm_angles_3d(
                 current_points, alphas, beta, gammas, partition_mapping
             )
