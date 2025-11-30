@@ -4,7 +4,6 @@ import cupy as cp
 from cuml.neighbors import NearestNeighbors
 
 from cuml.decomposition import PCA
-from cuml.metrics import pairwise_distances
 from cuml.preprocessing import StandardScaler
 
 from hnne.cool_functions import cool_max_radius, cool_mean

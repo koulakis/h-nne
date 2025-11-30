@@ -8,7 +8,6 @@ from typing import Optional
 import cupy as cp
 import cupyx.scipy.sparse as sp
 from cupyx.scipy.sparse import csgraph
-from cupyx.scipy.spatial.distance import cdist
 from cuml.internals import memory_utils
 memory_utils.set_global_output_type('cupy')
 from cuml.neighbors import NearestNeighbors
@@ -106,8 +105,6 @@ def FINCH(
     distance: str = "cosine",
     ensure_early_exit: bool = True,
     verbose: bool = True,
-    ann_threshold: int = 40000,
-    random_state: Optional[int] = None,
 ):
     """FINCH clustering algorithm.
 

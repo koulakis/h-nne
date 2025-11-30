@@ -6,7 +6,6 @@ import cupy as cp
 from cuml.internals import memory_utils
 memory_utils.set_global_output_type('cupy')
 from cuml.neighbors import NearestNeighbors
-from cuml.metrics import pairwise_distances
 from cuml.dask.common.base import BaseEstimator
 from cuml.decomposition import PCA
 from cuml.preprocessing import StandardScaler
@@ -125,8 +124,6 @@ class HNNE(BaseEstimator):
             ensure_early_exit=False,
             verbose=verbose,
             distance=self.metric,
-            ann_threshold=self.ann_threshold,
-            random_state=self.random_state,
         )
 
         large_enough_partitions = cp.argwhere(
@@ -332,13 +329,3 @@ class HNNE(BaseEstimator):
     def load(path):
         with open(path, "rb") as f:
             return pickle.load(f)
-
-        
-if __name__ == '__main__':
-    from cuml.datasets import make_blobs as make_blobs_gpu
-    
-    X_gpu, _ = make_blobs_gpu(n_samples=200_000, n_features=10, random_state=1)
-    
-    hnne = HNNE()
-    res = hnne.fit_transform(X_gpu)
-    print(res)
