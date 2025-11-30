@@ -1,155 +1,92 @@
 import pickle
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, List, Optional
 
-import numpy as np
-from finch import FINCH
-from pynndescent import NNDescent
-from sklearn import metrics
-from sklearn.base import BaseEstimator
-from sklearn.decomposition import PCA
-from sklearn.preprocessing import StandardScaler
+import cupy as cp
+from cuml.internals import memory_utils
+memory_utils.set_global_output_type('cupy')
+from cuml.neighbors import NearestNeighbors
+from cuml.dask.common.base import BaseEstimator
+from cuml.decomposition import PCA
+from cuml.preprocessing import StandardScaler
 
-from hnne.v1.hierarchical_projection import (
-    multi_step_projection as multi_step_projection_v1,
-)
-from hnne.v2.hierarchical_projection import PreliminaryEmbedding
-from hnne.v2.hierarchical_projection import (
-    multi_step_projection as multi_step_projection_v2,
-)
-from hnne.v2.v2_utils import HNNEVersion, normalize_hnne_version
+from hnne.finch_clustering import FINCH
+from hnne.hierarchical_projection import PreliminaryEmbedding, multi_step_projection
 
 
 @dataclass
 class HierarchyParameters:
-    partitions: np.ndarray
-    requested_partition: np.ndarray
-    partition_sizes: np.ndarray
-    partition_labels: np.ndarray
-    lowest_level_centroids: np.ndarray
-    new_points_cluster_assignments: np.ndarray
+    partitions: cp.ndarray
+    partition_sizes: cp.ndarray
+    partition_labels: cp.ndarray
+    lowest_level_centroids: cp.ndarray
 
 
 @dataclass
 class ProjectionParameters:
     pca: Optional[PCA]
     scaler: StandardScaler
-    projected_centroid_radii: List[np.ndarray]
-    projected_centroids: List[np.ndarray]
-    points_means: List[np.ndarray]
-    points_max_radii: List[np.ndarray]
+    projected_centroid_radii: List[cp.ndarray]
+    projected_centroids: List[cp.ndarray]
+    points_means: List[cp.ndarray]
+    points_max_radii: List[cp.ndarray]
     inflation_params_list: List[Any]
-    v2_layout: Optional[Dict[Tuple[int, int], Tuple[float, ...]]]
     knn_index_transform: Optional[Any]
 
 
 class HNNE(BaseEstimator):
     """Hierarchical 1-Nearest Neighbor graph based Embedding
 
-     A fast hierarchical dimensionality reduction algorithm.
+    A fast hierarchical dimensionality reduction algorithm.
 
-     Parameters
-     ----------
-     n_components: int (default 2)
-         The dimension of the target space of the projection.
+    Parameters
+    ----------
+    n_components: int (default 2)
+        The dimension of the target space of the projection.
 
-     metric: str (default 'cosine')
-         The metric used to compute the distances when forming the h-nne hierarchy levels. Its value should be supported
-         by both sklearn and pynndescent. Some possible values: 'cityblock', 'cosine', 'euclidean',
-         'l1', 'l2', 'manhattan'.
+    metric: str (default 'cosine')
+        The metric used to compute the distances when forming the h-nne hierarchy levels. Its value should be supported
+        by both sklearn and pynndescent. Some possible values: 'cityblock', 'cosine', 'euclidean',
+        'l1', 'l2', 'manhattan'.
 
-     radius: float (default 0.4)
-         The radius used to place points around centroids as a portion of the distance between nearest neighbor anchors.
-         Though the theoretical value which guarantees no overlaps between anchor points is 0.2, 0.45 is a value which
-         provides in practice denser visualizations with minimal loss in performance.
+    radius: float (default 0.45)
+        The radius used to place points around centroids as a portion of the distance between nearest neighbor anchors.
+        Though the theoretical value which guarantees no overlaps between anchor points is 0.2, 0.45 is a value which
+        provides in practice denser visualizations with minimal loss in performance.
 
-     ann_threshold: int (default 20000)
-         A threshold above which approximate nearest neighbors will be computed instead of real nearest neighbors when
-         building the levels of h-nne.
+    ann_threshold: int (default 40000)
+        A threshold above which approximate nearest neighbors will be computed instead of real nearest neighbors when
+        building the levels of h-nne.
 
-     preliminary_embedding: str (default 'pca')
-         The preliminary embedding used to initiate h-nne. In terms of performance pca > pca_centroids > random_linear
-         and in terms of speed performance pca < pca_centroids < random_linear.
+    preliminary_embedding: str (default 'pca')
+        The preliminary embedding used to initiate h-nne. In terms of performance pca > pca_centroids > random_linear
+        and in terms of speed performance pca < pca_centroids < random_linear.
 
-     random_state: Optional[int] (default None)
-         An optional random state for reproducibility purposes. It fixes the state of PCA and ANN.
+    random_state: Optional[str] (default None)
+        An optional random state for reproducibility purposes. It fixes the state of PCA and ANN.
 
-     preferred_num_clust: Optional[int] (default None)
-         preferred clusters view. set to number of ground truth classes or clusters in your data.
+    Attributes
+    ----------
+    min_size_top_level: int (default 3)
+        The minimum number of centroids existing on the top level of the hierarchy. To achieve this minimum, the top
+        levels which have fewer centroids are removed.
 
-    hnne_version : Literal["v1","v2","version_1","version_2","1","2","auto"], optional (default "version_2")
-         Selects which h-NNE pipeline variant to run.
+    hierarchy_parameters: Optional[HierarchyParameters]
+        An object holding the parameters which encode the h-nne hierarchy. They are saved during fitting and can be
+        reused both during projecting new points or projecting again with different parameters, e.g. n_components.
 
-         - **"v2"/"version_2"/"2"**: Use the packing-aware v2 pipeline. A small set of
-           coarse FINCH levels is laid out with the fast hierarchical packing layer
-           (2D fast path or ND fallback) and the resulting anchor radii seed the first
-           descent step. Subsequent levels proceed with the standard h-NNE update.
-         - **"v1"/"version_1"/"1"**: Legacy behavior. No packing layer; points are
-           mapped into 1-NN–capped basins around anchors at each level.
-         - **"auto"**: Currently resolves to v2 (recommended). Kept for forward
-           compatibility if we later introduce adaptive selection.
+    References
+    ----------
+        The code implements the h-NNE algorithm described in our CVPR 2022 paper:
+        [1] M. Saquib Sarfraz*, Marios Koulakis*, Constantin Seibold, Rainer Stiefelhagen.
+        Hierarchical Nearest Neighbor Graph Embedding for Efficient Dimensionality Reduction. CVPR 2022.
+        https://openaccess.thecvf.com/content/CVPR2022/papers/Sarfraz_Hierarchical_Nearest_Neighbor_Graph_Embedding_for_Efficient_Dimensionality_Reduction_CVPR_2022_paper.pdf
 
-         The value is normalized internally (case-insensitive); synonyms above all map
-         to one of {"v1","v2"}. When "v1" is selected, any v2-specific knobs are ignored.
-
-     start_cluster_view : {"auto", int, None} (default "auto")
-         Controls where the v2 packing starts in the FINCH hierarchy (coarse→fine).
-
-         - **"auto"/None**: Pick a start/end band automatically from dataset size *N*
-           (coarse rule-of-thumb policy). This chooses a coarse start level and how
-           many child levels to include before handing off to the classic descent.
-         - **int**: Desired starting number of clusters; the nearest FINCH level is
-           used. The number of child levels to include is still chosen automatically
-           from *N*.
-
-     v2_size_threshold : Optional[int] (default None)
-         Upper bound on the cluster count for levels to be packed by v2. If `None`,
-         the automatic policy (based on *N*) selects a reasonable end level. If set,
-         the finest level used by v2 is the finest level whose cluster count is
-         `<= v2_size_threshold`. Only used when `hnne_version` is v2/"auto".
-
-    faiss_threshold: int | None = 10_000_000
-         faiss_use_gpu: bool = False
-         For very large data size > faiss_threshold, FINCH uses faiss for computing 1-nn
-
-     Attributes
-     ----------
-     min_size_top_level: int (default 3)
-         The minimum number of centroids existing on the top level of the hierarchy. To achieve this minimum, the top
-         levels which have fewer centroids are removed.
-
-     hierarchy_parameters: Optional[HierarchyParameters]
-        Cached FINCH hierarchy from fitting; reused for transforming new points
-        or re-projecting with different params (e.g., n_components).
-
-        Fields
-        ------
-        partitions : (N, L) int
-            Level-wise cluster labels (0 = finest … L-1 = top); labels are per-level.
-        partition_sizes : (L,) int
-            Number of clusters at each level.
-        requested_partition : (N,) int or None
-            Labels at the **exact** user-requested cluster count (if `preferred_num_clust`
-            was set); otherwise None.
-        lowest_level_centroids : (K0, D) float
-            Means of finest-level (ℓ=0) clusters in the orignal space.
-        new_points_cluster_assignments : (M, L) int or None
-            Assignments of the most recent `transform(new_points)` to existing clusters;
-            None if no transform was run.
-
-        Note: You can populate this without a full projection via `fit_only_hierarchy(...)`.
-
-
-     References
-     ----------
-         The code implements the h-NNE algorithm described in our CVPR 2022 paper:
-         [1] M. Saquib Sarfraz*, Marios Koulakis*, Constantin Seibold, Rainer Stiefelhagen.
-         Hierarchical Nearest Neighbor Graph Embedding for Efficient Dimensionality Reduction. CVPR 2022.
-         https://openaccess.thecvf.com/content/CVPR2022/papers/Sarfraz_Hierarchical_Nearest_Neighbor_Graph_Embedding_for_Efficient_Dimensionality_Reduction_CVPR_2022_paper.pdf
-
-         Please contact the authors below for licensing information.
-         Marios Koulakis (marios.koulakis@gmail.com)
-         M. Saquib Sarfraz (saquibsarfraz@gmail.com)
+        It is for academic purposes only. The code or its re-implementation should not be used for commercial use.
+        Please contact the authors below for licensing information.
+        Marios Koulakis (marios.koulakis@gmail.com)
+        M. Saquib Sarfraz (saquibsarfraz@gmail.com)
+        Karlsruhe Institute of Technology (KIT)
     """
 
     def __init__(
@@ -157,24 +94,15 @@ class HNNE(BaseEstimator):
         n_components: int = 2,
         metric: str = "cosine",
         radius: float = 0.4,
-        ann_threshold: int = 20_000,
+        ann_threshold: int = 40000,
         preliminary_embedding: str = "pca",
         random_state: Optional[int] = None,
-        preferred_num_clust: Optional[int] = None,
-        hnne_version: HNNEVersion = "version_2",
-        start_cluster_view: Union[str, int, None] = "auto",
-        v2_size_threshold: Optional[int] = None,
-        faiss_threshold: int = 10_000_000,
-        faiss_use_gpu: bool = False,
     ):
         self.n_components = n_components
         self.radius = radius
         self.ann_threshold = ann_threshold
         self.random_state = random_state
-        self.preferred_num_clust = preferred_num_clust
-        self.hnne_version = normalize_hnne_version(hnne_version)
-        self.v2_size_threshold = v2_size_threshold
-        self.start_cluster_view = start_cluster_view
+
         try:
             preliminary_embedding = PreliminaryEmbedding[preliminary_embedding]
         except KeyError:
@@ -182,42 +110,24 @@ class HNNE(BaseEstimator):
                 f"Invalid preliminary embedding: {preliminary_embedding}. "
                 f'Please select one from: {", ".join(PreliminaryEmbedding)}.'
             )
-
         self.preliminary_embedding = preliminary_embedding
         self.metric = metric
         self.min_size_top_level: int = 3
-
-        # faiss
-        self.faiss_threshold = faiss_threshold
-        self.faiss_use_gpu = faiss_use_gpu
-        # --
         self.hierarchy_parameters: Optional[HierarchyParameters] = None
         self.projection_parameters: Optional[ProjectionParameters] = None
 
-    def fit_only_hierarchy(self, X: np.ndarray, verbose: bool = False):
+    def fit_only_hierarchy(self, X: cp.ndarray, verbose: bool = False):
         if verbose:
             print("Building h-NNE hierarchy using FINCH...")
-        [
-            partitions,
-            partition_sizes,
-            requested_partition,
-            partition_labels,
-            lowest_level_centroids,
-        ] = FINCH(
+        [partitions, partition_sizes, partition_labels, lowest_level_centroids] = FINCH(
             data=X,
-            req_clust=self.preferred_num_clust,
             ensure_early_exit=False,
             verbose=verbose,
             distance=self.metric,
-            ann_threshold=self.ann_threshold,
-            random_state=self.random_state,
-            faiss_threshold=self.faiss_threshold,
-            faiss_use_gpu=self.faiss_use_gpu,
-            return_meta_labels=True,
         )
 
-        large_enough_partitions = np.argwhere(
-            np.array(partition_sizes) >= self.min_size_top_level
+        large_enough_partitions = cp.argwhere(
+            cp.array(partition_sizes) >= self.min_size_top_level
         )
         if len(large_enough_partitions) == 0:
             raise ValueError(
@@ -234,24 +144,16 @@ class HNNE(BaseEstimator):
         partitions = partitions[:, :max_partition_idx]
         partition_labels = partition_labels[:max_partition_idx]
 
-        new_points_cluster_assignments = np.empty(
-            [0, 0]
-        )  # gets updated if transform is called
         self.hierarchy_parameters = HierarchyParameters(
-            partitions,
-            requested_partition,
-            partition_sizes,
-            partition_labels,
-            lowest_level_centroids,
-            new_points_cluster_assignments,
+            partitions, partition_sizes, partition_labels, lowest_level_centroids
         )
 
-        return partitions, requested_partition, partition_sizes, partition_labels
+        return partitions, partition_sizes, partition_labels
 
     def fit(
         self,
-        X: np.ndarray,
-        y: np.ndarray = None,
+        X: cp.ndarray,
+        y: cp.ndarray = None,
         override_n_components: Optional[int] = None,
         verbose: bool = False,
         skip_hierarchy_building_if_done: bool = True,
@@ -281,16 +183,15 @@ class HNNE(BaseEstimator):
             if verbose:
                 print("Skipping the hierarchy construction as it is already available.")
             hparams = self.hierarchy_parameters
-            partitions, requested_partition, partition_sizes, partition_labels = (
+            partitions, partition_sizes, partition_labels = (
                 hparams.partitions,
-                hparams.requested_partition,
                 hparams.partition_sizes,
                 hparams.partition_labels,
             )
 
         else:
-            [partitions, requested_partition, partition_sizes, partition_labels] = (
-                self.fit_only_hierarchy(X, verbose=verbose)
+            [partitions, partition_sizes, partition_labels] = self.fit_only_hierarchy(
+                X, verbose=verbose
             )
 
         if (override_n_components is not None) and (
@@ -304,59 +205,27 @@ class HNNE(BaseEstimator):
 
         if verbose:
             print(f"Projecting to {self.n_components} dimensions...")
-        if self.hnne_version == "v1":
-            [
-                projection,
-                projected_centroid_radii,
-                projected_centroids,
-                pca,
-                scaler,
-                points_means,
-                points_max_radii,
-                inflation_params_list,
-            ] = multi_step_projection_v1(
-                data=X,
-                partitions=partitions,
-                partition_labels=partition_labels,
-                radius=self.radius,
-                ann_threshold=self.ann_threshold,
-                dim=self.n_components,
-                partition_sizes=partition_sizes,
-                preliminary_embedding=self.preliminary_embedding,
-                random_state=self.random_state,
-                verbose=verbose,
-            )
-            v2_layout = None
-        elif self.hnne_version == "v2":
-            [
-                projection,
-                projected_centroid_radii,
-                projected_centroids,
-                pca,
-                scaler,
-                points_means,
-                points_max_radii,
-                inflation_params_list,
-                v2_layout,
-            ] = multi_step_projection_v2(
-                data=X,
-                partitions=partitions,
-                partition_labels=partition_labels,
-                radius=self.radius,
-                ann_threshold=self.ann_threshold,
-                dim=self.n_components,
-                partition_sizes=partition_sizes,
-                preliminary_embedding=self.preliminary_embedding,
-                preferred_num_clust=self.preferred_num_clust,
-                requested_partition=requested_partition,
-                hnne_version=self.hnne_version,
-                v2_size_threshold=self.v2_size_threshold,
-                start_cluster_view=self.start_cluster_view,
-                random_state=self.random_state,
-                verbose=verbose,
-            )
-        else:
-            raise ValueError(f"Unknown h-NNE version: {self.hnne_version}.")
+        [
+            projection,
+            projected_centroid_radii,
+            projected_centroids,
+            pca,
+            scaler,
+            points_means,
+            points_max_radii,
+            inflation_params_list,
+        ] = multi_step_projection(
+            data=X,
+            partitions=partitions,
+            partition_labels=partition_labels,
+            radius=self.radius,
+            ann_threshold=self.ann_threshold,
+            dim=self.n_components,
+            partition_sizes=partition_sizes,
+            preliminary_embedding=self.preliminary_embedding,
+            random_state=self.random_state,
+            verbose=verbose,
+        )
 
         self.projection_parameters = ProjectionParameters(
             pca=pca,
@@ -366,7 +235,6 @@ class HNNE(BaseEstimator):
             points_means=points_means,
             points_max_radii=points_max_radii,
             inflation_params_list=inflation_params_list,
-            v2_layout=v2_layout,
             knn_index_transform=None,
         )
 
@@ -374,8 +242,8 @@ class HNNE(BaseEstimator):
 
     def transform(
         self,
-        X: np.ndarray,
-        ann_point_combination_threshold: int = 400e6,
+        X: cp.ndarray,
+        ann_point_combination_threshold: int = 40000,
         verbose: bool = False,
     ):
         NNS = 30
@@ -394,34 +262,23 @@ class HNNE(BaseEstimator):
             len(hparams.lowest_level_centroids) * len(X)
             > ann_point_combination_threshold
         ):
-            if pparams.knn_index_transform is None:
-                if verbose:
-                    print("Setting up once a knn index for the last level centroids...")
-                knn_index = NNDescent(
-                    hparams.lowest_level_centroids,
-                    n_neighbors=NNS,
-                    metric=self.metric,
-                    verbose=verbose,
-                )
-                knn_index.prepare()
-                pparams.knn_index_transform = knn_index
-            else:
-                knn_index = pparams.knn_index_transform
-            nearest_anchor_idxs = knn_index.query(X, k=NNS)[0][:, 0]
-        else:
-            orig_dist = metrics.pairwise.pairwise_distances(
-                X, hparams.lowest_level_centroids, metric=self.metric
+            nn_index = NearestNeighbors(
+                n_neighbors=NNS,
+                metric=self.metric,
             )
-            nearest_anchor_idxs = np.argmin(orig_dist, axis=1)
+            nn_index.fit(hparams.lowest_level_centroids)
+            pparams.knn_index_transform = nn_index
 
-        # update test_points cluster assignments
-        _, lowest_level_centroids_index = np.unique(
-            hparams.partitions[:, 0], return_index=True
-        )
-        new_points_index = lowest_level_centroids_index[nearest_anchor_idxs]
-        self.hierarchy_parameters.new_points_cluster_assignments = hparams.partitions[
-            new_points_index, :
-        ]
+            # query returns (distances, indices)
+            nearest_anchor_idxs = nn_index.kneighbors(X, return_distance=True)[1][:, 0]
+        else:
+            # Use brute-force kNN on GPU to avoid dense pairwise allocations
+            nn_index = NearestNeighbors(
+                n_neighbors=1,
+                metric=self.metric,
+            )
+            nn_index.fit(hparams.lowest_level_centroids)
+            nearest_anchor_idxs = nn_index.kneighbors(X, return_distance=False)[:, 0]
 
         if verbose:
             print("Projecting data...")
@@ -437,24 +294,21 @@ class HNNE(BaseEstimator):
                 m2, s2 = norm2_params
                 m2, s2 = m2[nearest_anchor_idxs], s2[nearest_anchor_idxs]
                 X = (X - m1) / s1
-                X = np.dot(X, rot)
+                X = cp.dot(X, rot)
                 X = (X - m2) / s2
-                X = np.dot(X, np.linalg.inv(rot))
+                X = cp.dot(X, rot.T)
             # Some points might be placed on the wrong centroid and get pushed too far away after applying inflation.
             # To remedy this, we allow points only to inflate up to a number of stds of each centroid partition.
-            data_norms = np.linalg.norm(X, axis=-1)
-            X = np.where(
-                np.expand_dims(data_norms > MAX_NORM_ALLOWED, axis=-1),
-                MAX_NORM_ALLOWED * X / np.expand_dims(data_norms, axis=-1),
-                X,
-            )
+            data_norms = cp.linalg.norm(X, axis=1, keepdims=True)
+            mask = data_norms > MAX_NORM_ALLOWED
+            X = cp.where(mask, (MAX_NORM_ALLOWED / data_norms) * X, X)
 
         # Compute parameters related to the nearest anchors
         projected_nearest_anchors = pparams.projected_centroids[-2][nearest_anchor_idxs]
-        max_radii = np.expand_dims(
+        max_radii = cp.expand_dims(
             pparams.points_max_radii[-1][nearest_anchor_idxs], axis=-1
         )
-        centroid_radii = np.expand_dims(
+        centroid_radii = cp.expand_dims(
             pparams.projected_centroid_radii[-1][nearest_anchor_idxs], axis=-1
         )
 
