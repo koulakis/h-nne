@@ -38,6 +38,7 @@ def project_with_pca_centroids(
 
 
 def project_with_pca(data, dim=2, random_state=None):
+    # cuml's PCA does not have a random state argument
     pca = PCA(n_components=dim) #, random_state=random_state)
     transformed_data = pca.fit_transform(data)
     return transformed_data, pca
@@ -95,6 +96,7 @@ def move_projected_points_to_anchors(
     # Always use kNN on GPU to avoid dense pairwise distance matrices
     if verbose and anchors.shape[0] > real_nn_threshold:
         print("Using nn to calculate 1-nns of the projected points...")
+    # TODO: Check what cuVS offers in terms of alternatives
     nn = NearestNeighbors(
         n_neighbors=2,
         metric="euclidean",
